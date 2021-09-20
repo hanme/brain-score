@@ -105,7 +105,6 @@ class TestStandardized:
         pytest.param('dicarlo.Marques2020_FreemanZiemba2013-max_texture', approx(0.946, abs=.005), marks=[]),
         pytest.param('dicarlo.Marques2020_FreemanZiemba2013-max_noise', approx(0.945, abs=.005), marks=[]),
     ])
-
     def test_ceilings(self, benchmark, expected):
         benchmark = benchmark_pool[benchmark]
         ceiling = benchmark.ceiling

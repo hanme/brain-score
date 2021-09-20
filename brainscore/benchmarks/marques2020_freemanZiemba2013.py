@@ -41,8 +41,8 @@ RESPONSE_THRESHOLD = 5
 def _MarquesFreemanZiemba2013V1Property(property_name, parent):
     assembly = brainscore.get_assembly(ASSEMBLY_NAME)
     similarity_metric = BootstrapDistributionSimilarity(similarity_func=ks_similarity, property_name=property_name)
-    ceil_func = NeuronalPropertyCeiling(BootstrapDistributionSimilarity(similarity_func=ks_similarity,
-                                                                        property_name=property_name))
+    ceiler = NeuronalPropertyCeiling(similarity_metric)
+    ceil_func = lambda: ceiler(assembly)
     return PropertiesBenchmark(identifier=f'dicarlo.Marques_freemanziemba2013-{property_name}', assembly=assembly,
                                neuronal_property=freemanziemba2013_properties, similarity_metric=similarity_metric,
                                timebins=TIMEBINS,
