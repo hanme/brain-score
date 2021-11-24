@@ -1,6 +1,8 @@
 import itertools
 import logging
 import numpy as np
+import xarray as xr
+import pandas as pd
 import warnings
 from numpy.random import RandomState
 from pandas import DataFrame
@@ -10,16 +12,19 @@ from tqdm import tqdm
 from xarray import DataArray
 
 import brainscore
+from model_tools.brain_transformation.tissue.neural_perturbation import MuscimolInjection
 from brainio.assemblies import merge_data_arrays, walk_coords, DataAssembly, array_is_element
 from brainscore.benchmarks import BenchmarkBase
 from brainscore.metrics import Score
 from brainscore.metrics.behavior_differences import DeficitPredictionTask, DeficitPredictionObject
 from brainscore.metrics.difference_of_correlations import DifferenceOfCorrelations
 from brainscore.metrics.image_level_behavior import _o2
+from brainscore.metrics.inter_individual_stats_ceiling import InterIndividualStatisticsCeiling
 from brainscore.metrics.significant_match import SignificantCorrelation
+from brainscore.metrics.spatial_correlation import SpatialCorrelationSimilarity
 from brainscore.metrics.transformations import CrossValidation
 from brainscore.model_interface import BrainModel
-from brainscore.utils import fullname
+from brainscore.utils import fullname, LazyLoad
 from packaging.rajalingham2019 import collect_assembly
 
 TASK_LOOKUP = {
@@ -97,8 +102,8 @@ class _Rajalingham2019(BenchmarkBase):
         # "We varied the location of microinjections to randomly sample the ventral surface of IT
         # (from approximately + 8mm AP to approx + 20mm AP)."
         # stay between [0, 10] since that is the extent of the tissue
-        injection_locations = self.sample_points([2, 2], [8, 8], num=self._num_sites)
-        for site, injection_location in enumerate(injection_locations):
+
+        for site, injection_location in enumerate(self._sample_injection_locations()):
             perturbation_parameters = {**MUSCIMOL_PARAMETERS,
                                        **{'location': injection_location}}
             perturbed_behavior = self._perform_task_perturbed(candidate,
@@ -136,6 +141,14 @@ class _Rajalingham2019(BenchmarkBase):
         behavior = type(behavior)(behavior)  # make sure site and injected are indexed
 
         return behavior
+
+    def _sample_injection_locations(self):
+        border_area = MuscimolInjection()._cov * 1  # TODO
+        injection_locations = np.random.rand(self._num_sites * 10) * (10 - border_area)
+        injection_locations = injection_locations[injection_locations > border_area]
+        injection_locations = injection_locations[:self._num_sites * 2]
+        injection_locations = injection_locations.reshape((self._num_sites, 2))
+        return injection_locations
 
     @staticmethod
     def align_task_names(behaviors):
@@ -188,9 +201,39 @@ def Rajalingham2019DeficitPredictionObject():
                             metric=metric)
 
 
+def Rajalingham2019DeficitsSignificant():
+    return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-deficits_significant',
+                            metric=SpatialCharacterizationMetric())
+
+
+def Rajalingham2019SpatialDeficits():
+    return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-spatial_deficit_similarity',
+                            metric=DifferenceOfCorrelations(correlation_variable='distance'))
+
+
+def DicarloRajalingham2019SpatialDeficitsQuantified():
+    def inv_ks_similarity(p, q):
+        '''
+        Inverted ks similarity -> resulting in a score within [0,1], 1 being a perfect match
+        '''
+        import scipy.stats
+        return 1 - scipy.stats.ks_2samp(p, q)[0]
+
+    similarity_metric = SpatialCorrelationSimilarity(similarity_function=inv_ks_similarity,
+                                                     bin_size_mm=.8)  # arbitrary bin size
+    metric = SpatialCharacterizationMetric()
+    metric._similarity_metric = similarity_metric
+    benchmark = _Rajalingham2019(identifier='dicarlo.Rajalingham2019.IT-spatial_deficit_similarity_quantified',
+                                 metric=metric)
+
+    # TODO really messy solution | only works after benchmark metric has been called once
+    benchmark._ceiling_func = lambda: InterIndividualStatisticsCeiling(similarity_metric)(
+        benchmark._metric._similarity_metric.target_statistic)
+    return benchmark
+
+
 class SpatialCharacterizationMetric:
     def __init__(self, similarity_metric):
-        # the metric operating on characterized assemblies
         self._similarity_metric = similarity_metric
 
     def __call__(self, behaviors, target):
@@ -206,39 +249,57 @@ class SpatialCharacterizationMetric:
         return score
 
     def compute_response_deficit_distance_target(self, target_assembly):
-        dprime_assembly = target_assembly.mean('bootstrap',
-                                               skipna=True)  # obviously skipna no effect
+        dprime_assembly = target_assembly.mean('bootstrap')
 
-        mask = np.full((dprime_assembly.site.size, dprime_assembly.site.size), False)
-        for i in range(len(mask)):
-            if i < 10:  # TODO: use named meta data in coordinates rather than obscure indices
-                mask[i, i:10] = True  # monkey 1, task 1, upper triangle
-            elif i < 17:
-                mask[i, i:17] = True  # monkey 2, task 1, upper triangle
-            else:
-                mask[i, i:] = True  # monkey 2, task 2, upper triangle
+        statistics_list = []
+        for monkey in set(dprime_assembly.monkey.data):
+            # for array in set(dprime_assembly.array.data):
+            sub_assembly = dprime_assembly.sel(monkey=monkey)  # , array=array)
+            distances, correlations = self._compute_response_deficit_distance(sub_assembly)
+            mask = np.triu_indices(sub_assembly.site.size)
 
-        return self._compute_response_deficit_distance(dprime_assembly, mask)
+            statistics_list.append(
+                self.to_xarray(correlations[mask], distances[mask], source=monkey))  # , array=array))
+
+        return xr.concat(statistics_list, dim='meta')
 
     def compute_response_deficit_distance_candidate(self, dprime_assembly):
+        distances, correlations = self._compute_response_deficit_distance(dprime_assembly)
         mask = np.triu_indices(dprime_assembly.site.size)
 
-        return self._compute_response_deficit_distance(dprime_assembly, mask)
+        return self.to_xarray(correlations[mask], distances[mask])
 
-    def _compute_response_deficit_distance(self, dprime_assembly, mask):
+    def _compute_response_deficit_distance(self, dprime_assembly):
+        '''
+        :param dprime_assembly: assembly of behavioral performance
+        :return: square matrices with correlation and distance values; each matrix elem == value between site_i, site_j
+        '''
         distances = self.pairwise_distances(dprime_assembly)
 
         behavioral_differences = self.compute_differences(dprime_assembly)
         # dealing with nan values while correlating; not np.ma.corrcoef: https://github.com/numpy/numpy/issues/15601
         correlations = DataFrame(behavioral_differences.data).T.corr().values
 
-        statistic = DataArray(
-            data=correlations[mask],
-            dims=["distance"],
-            coords=dict(
-                distance=(distances[mask])))
+        return distances, correlations
 
-        return statistic
+    @staticmethod
+    def to_xarray(correlations, distances, source='model', array=None):
+        '''
+        :param values: list of data values
+        :param distances: list of distance values, each distance value has to correspond to one data value
+        :param source: name of monkey
+        :param array: name of recording array
+        '''
+        xarray_statistic = DataArray(
+            data=correlations,
+            dims=["meta"],
+            coords={
+                'meta': pd.MultiIndex.from_product([distances, [source], [array]],
+                                                   names=('distances', 'source', 'array'))
+            }
+        )
+
+        return xarray_statistic
 
     @staticmethod
     def pairwise_distances(dprime_assembly):
