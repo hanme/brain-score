@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 from brainio.assemblies import merge_data_arrays, DataArray, DataAssembly
-from brainscore.metrics.performance_similarity import PerformanceSimilarity  # TODO
+# from brainscore.metrics.performance_similarity import PerformanceSimilarity  # TODO
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
@@ -11,7 +11,7 @@ from brainscore.metrics import Metric
 from brainscore.metrics.accuracy import Accuracy
 from brainscore.model_interface import BrainModel
 from brainscore.utils import LazyLoad
-from packaging.moeller2017.moeller2017 import collect_target_assembly
+from packaging.moeller2017 import collect_target_assembly
 
 # TODO within Face patch means within AM right now
 
@@ -406,7 +406,7 @@ def Moeller2017Experiment1():
     return _Moeller2017(stimulus_class='Faces',
                         perturbation_location='within_facepatch',
                         identifier='dicarlo.Moeller2017-Experiment_1',
-                        metric=PerformanceSimilarity(),
+                        metric=None,#PerformanceSimilarity(),
                         performance_measure=Accuracy())
 
 
