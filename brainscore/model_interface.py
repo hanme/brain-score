@@ -21,6 +21,11 @@ class BrainModel:
     location to record from
     """
 
+    RecordingType = Enum('RecordingTarget', " ".join(['exact', 'electrode', 'fMRI']))
+    """
+    technique to record with
+    """
+
     Task = Enum('Task', " ".join(['passive', 'probabilities', 'label']))
     """
     task to perform
@@ -74,7 +79,10 @@ class BrainModel:
         """
         raise NotImplementedError()
 
-    def start_recording(self, recording_target: RecordingTarget, time_bins=List[Tuple[int]]):
+    def start_recording(self,
+                        recording_target: RecordingTarget,
+                        time_bins: List[Tuple[int]],
+                        recording_type: RecordingType):
         """
         Instructs the model to begin recording in a specified
         :data:`~brainscore.model_interface.BrainModel.RecordingTarget` and return the specified `time_bins`.
@@ -97,6 +105,7 @@ class BrainModel:
         :param recording_target: which location to record from
         :param time_bins: which time_bins to record as a list of integer tuples,
             e.g. `[(50, 100), (100, 150), (150, 200)]` or `[(70, 170)]`
+        :param recording_type: with which technique to record with
         """
         raise NotImplementedError()
 
