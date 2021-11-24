@@ -81,7 +81,7 @@ class BrainModel:
 
     def start_recording(self,
                         recording_target: RecordingTarget,
-                        time_bins: List[Tuple[int]],
+                        time_bins: List[Tuple[int, int]],
                         recording_type: RecordingType):
         """
         Instructs the model to begin recording in a specified

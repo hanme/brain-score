@@ -89,7 +89,8 @@ class _Moeller2017(BenchmarkBase):
         self._compute_perturbation_coordinates(candidate)  # TODO move to modeltools
         decoder = self._set_up_decoder(candidate)
 
-        candidate.start_recording(recording_target='IT', time_bins=[(70, 170)])
+        candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
+                                  recording_type=BrainModel.RecordingType.electrode)
         candidate_performance = []
         for perturbation in self._perturbations:
             behavior = self._perform_task(candidate, perturbation=perturbation,
@@ -206,7 +207,8 @@ class _Moeller2017(BenchmarkBase):
         Fit a logistic regression between the recordings of the training stimuli and the ground truth
         :return: trained linear regressor
         """
-        candidate.start_recording(recording_target='IT', time_bins=[(70, 170)])
+        candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
+                                  recording_type=BrainModel.RecordingType.electrode)
         recordings = candidate.look_at(self._training_stimuli)
         samples = 500  # TODO why 500
 

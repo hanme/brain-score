@@ -92,7 +92,7 @@ class _Afraz2015Optogenetics(BenchmarkBase):
 
     def __call__(self, candidate: BrainModel):
         # record to determine face-selectivity
-        candidate.start_recording('IT', time_bins=[(50, 100)])
+        candidate.start_recording('IT', time_bins=[(50, 100)], recording_type=BrainModel.RecordingType.electrode)
         recordings = candidate.look_at(self._selectivity_stimuli)
 
         # sub-select recordings to match sites in experiment
@@ -351,7 +351,7 @@ class _Afraz2015Muscimol(BenchmarkBase):
 
         # record to determine face-selectivity
         candidate.start_task(BrainModel.Task.passive)  # passive viewing
-        candidate.start_recording('IT', time_bins=[(50, 100)])
+        candidate.start_recording('IT', time_bins=[(50, 100)], recording_type=BrainModel.RecordingType.electrode)
         recordings = candidate.look_at(self._selectivity_stimuli)
 
         # sub-select neurons to match sites in experiment

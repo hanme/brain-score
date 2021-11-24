@@ -141,7 +141,8 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
         :param candidate: BrainModel
         :return: Score, i.e. average inverted ks similarity, for the pairwise response correlation compared to the MajajHong Assembly
         '''
-        candidate.start_recording(recording_target='IT', time_bins=[(70, 170)])
+        candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
+                                  recording_type=BrainModel.RecordingType.electrode)
         candidate_assembly = candidate.look_at(self._stimulus_set)
         candidate_assembly = self.make_static(candidate_assembly)
         candidate_statistic = self.sample_global_tissue_statistic(candidate_assembly)
