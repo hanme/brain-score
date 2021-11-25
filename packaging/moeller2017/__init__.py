@@ -21,7 +21,7 @@ def collect_target_assembly(stimulus_class, perturbation_location):
     # make into DataAssembly
     data = _load_target_data(stimulus_class, perturbation_location)
     target_assembly = DataAssembly(data=data['accuracies'], dims='condition',
-                                   coords={'condition': data['condition'],  # same vs. diff
+                                   coords={'task': ('condition', data['condition']),  # same vs. diff
                                            'object_name': ('condition', data['object_name']),
                                            'current_pulse_mA': ('condition', data['current_pulse_mA'])},
                                    attrs={'stimulus_set': stimulus_set,

@@ -139,11 +139,11 @@ class _Moeller2017(BenchmarkBase):
         samples = 500  # TODO why 500
         behavior_data = []
         for object_name in set(IT_recordings.object_name.values):
-            recordings, conditions = self._sample_recordings(IT_recordings.sel(object_name=object_name),
-                                                             samples=samples)
+            object_recordings = IT_recordings.sel(object_name=object_name)
+            recordings, conditions = self._sample_recordings(object_recordings, samples=samples)
             choices = (decoder.predict(recordings) > .5).astype(int)
             behavior = DataArray(data=choices, dims='condition',
-                                 coords={'condition': conditions,
+                                 coords={'task': ('condition', conditions),
                                          'truth': ('condition', (np.array(conditions) == 'same_id').astype(int)),
                                          'object_name': ('condition', [object_name] * samples * 2)})
             behavior_data.append(behavior)
@@ -173,8 +173,7 @@ class _Moeller2017(BenchmarkBase):
             behavior = behaviors.sel(current_pulse_mA=current_pulse_mA, truth=truth, object_name=object_name)
             performance = self._performance_measure(behavior, [truth] * len(behavior))
             performance_array = DataAssembly(data=[performance.data[0]], dims='condition',
-                                             coords={'condition': [behavior.condition_level_0.values[0]],
-                                                     # because need DataAssembly for .sel above
+                                             coords={'task': ('condition', [behavior.task.values[0]]),
                                                      'object_name': ('condition', [object_name]),
                                                      'current_pulse_mA': ('condition', [current_pulse_mA])})
             performance_data.append(performance_array)
@@ -243,11 +242,11 @@ class _Moeller2017(BenchmarkBase):
         # TODO object and image_id disappear with subselection
         rng = np.random.default_rng(seed=self._seed)
         recording_size = category_pool.shape[0]
-        random_indeces = rng.integers(0, category_pool.shape[1], (samples, 2))
+        random_indices = rng.integers(0, category_pool.shape[1], (samples, 2))
 
         sampled_recordings = np.full((samples * 2, recording_size * 2), np.nan)
-        for i, (random_idx_same, random_idx_different) in tqdm(enumerate(random_indeces),
-                                                               desc='decoder training recordings'):
+        for i, (random_idx_same, random_idx_different) in enumerate(
+                tqdm(random_indices, desc='decoder training recordings')):
             # condition 'same_id': object_id same between recording one and two, image_id different between recording one and two
             image_one_same = category_pool[:, random_idx_same]
             same_image_id, same_object_id = image_one_same.presentation.values.item()  # TODO weird xarray behavior, diappearing dimension after selection
@@ -406,7 +405,7 @@ def Moeller2017Experiment1():
     return _Moeller2017(stimulus_class='Faces',
                         perturbation_location='within_facepatch',
                         identifier='dicarlo.Moeller2017-Experiment_1',
-                        metric=None,#PerformanceSimilarity(),
+                        metric=None,  # PerformanceSimilarity(),
                         performance_measure=Accuracy())
 
 
