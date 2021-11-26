@@ -1,20 +1,20 @@
 import functools
-
 import logging
+
 import numpy as np
-import pingouin as pg
 import xarray as xr
-from brainscore.metrics.significant_match import SignificantCorrelation
+from brainio.assemblies import merge_data_arrays, DataAssembly, walk_coords, array_is_element
 from numpy.random import RandomState
 from tqdm import tqdm
 from xarray import DataArray
 
-from brainio.assemblies import merge_data_arrays, DataAssembly, walk_coords, array_is_element
 from brainscore.benchmarks import BenchmarkBase
 from brainscore.benchmarks.afraz2006 import mean_var
 from brainscore.metrics import Score
 from brainscore.metrics.difference_of_correlations import DifferenceOfCorrelations
 from brainscore.metrics.difference_of_fractions import DifferenceOfFractions
+from brainscore.metrics.significant_match import SignificantCorrelation, SignificantPerformanceChange, \
+    is_significantly_different
 from brainscore.model_interface import BrainModel
 from brainscore.utils import fullname
 from packaging.afraz2015 import muscimol_delta_overall_accuracy, collect_stimuli, collect_site_deltas, \
@@ -146,23 +146,7 @@ class _Afraz2015Optogenetics(BenchmarkBase):
 
 
 def Afraz2015OptogeneticOverallDeltaAccuracySignificant():
-    def metric(grouped_accuracy, data_assembly):
-        # Typically, we would compare against packaged data with a metric here.
-        # For this dataset, we only have error bars and their significance, but we do not have the raw data
-        # that the significances are computed from.
-        # Because of that, we will _not_ compare candidate prediction against data here, but rather impose data
-        # characterizations on the candidate prediction. Specifically, we will check if:
-        # 1. behavioral accuracies in the non-suppressed ("image") and suppressed ("image+laser") conditions are
-        # significantly different, and
-        # 2. behavioral accuracy in the non-suppressed condition is significantly higher than with suppression
-        different = is_significantly_different(DataAssembly(grouped_accuracy), between='laser_on')
-        unperturbed_accuracy = grouped_accuracy.sel(laser_on=False).mean('presentation')
-        site_accuracies = grouped_accuracy.sel(laser_on=True).mean()  # mean over everything at once
-        unperturbed_accuracy_higher = unperturbed_accuracy > site_accuracies
-        score = different and unperturbed_accuracy_higher
-        score = Score([score], coords={'aggregation': ['center']}, dims=['aggregation'])
-        score.attrs['delta_accuracy'] = unperturbed_accuracy - site_accuracies
-        return score
+    metric = SignificantPerformanceChange(condition_name='laser_on', condition_value1=False, condition_value2=True)
 
     return _Afraz2015OptogeneticOverallAccuracy(
         metric_identifier='delta_accuracy_significant',
@@ -178,7 +162,7 @@ def Afraz2015OptogeneticOverallDeltaAccuracy():
         accuracy_delta_candidate = DataAssembly([unperturbed_accuracy_candidate, perturbed_accuracy_candidate],
                                                 coords={'performance': ['unperturbed', 'perturbed']},
                                                 dims=['performance'])
-        accuracy_delta_data = data_assembly.sel(aggregation='center')
+        accuracy_delta_data = data_assembly
         accuracy_delta_data['performance'] = 'condition', ['unperturbed' if not laser_on else 'perturbed'
                                                            for laser_on in accuracy_delta_data['laser_on'].values]
         accuracy_delta_candidate.attrs['raw'] = grouped_accuracy
@@ -215,7 +199,8 @@ class _Afraz2015OptogeneticOverallAccuracy(_Afraz2015Optogenetics):
         grouped_accuracy = self.group_accuracy(unperturbed_accuracy, site_accuracies)
 
         # compute score
-        score = self._metric(grouped_accuracy, self._assembly)
+        aggregate_target = self._assembly.sel(aggregation='center')
+        score = self._metric(grouped_accuracy, aggregate_target)
         return score
 
     def group_accuracy(self, unperturbed_accuracy, site_accuracies):
@@ -269,7 +254,7 @@ def Afraz2015MuscimolDeltaAccuracySignificant():
         # For this dataset, we only have error bars and their significance, but we do not have the raw data
         # that the significances are computed from.
         # Because of that, we will _not_ compare candidate prediction against data here, but rather impose data
-        # characterizations on the candidate prediction. Specifically, we will check if:
+        # characterizations on the candidate prediction as claimed in the paper. Specifically, we will check if:
         # 1. suppressing face-selective sites leads to a significantly different behavioral effect on accuracy compared
         # to suppressing non face-selective sites, and
         # 2. suppressing face-selective sites lead to a negative behavioral effect
@@ -403,23 +388,6 @@ class _Afraz2015Muscimol(BenchmarkBase):
         recordings = recordings[{'neuroid': [neuroid_id in (face_detector_sites + nonface_detector_sites)
                                              for neuroid_id in recordings['neuroid_id'].values]}]
         return recordings
-
-
-def is_significantly_different(assembly, between, significance_threshold=0.05):
-    """
-    ANOVA between conditions
-    :param assembly: the assembly with the values to compare
-    :param between: condition to compare between, e.g. "is_face_selective"
-    :param significance_threshold: p-value threshold, e.g. 0.05
-    :return:
-    """
-    # convert assembly into dataframe
-    data = assembly.to_pandas().reset_index()
-    data = data.rename(columns={0: 'values'})
-    anova = pg.anova(data=data, dv='values', between=between)
-    pvalue = anova['p-unc'][0]
-    significantly_different = pvalue < significance_threshold
-    return significantly_different
 
 
 def find_selective_sites(num_face_detector_sites, num_nonface_detector_sites, recordings,
