@@ -21,7 +21,7 @@ class BrainModel:
     location to record from
     """
 
-    RecordingType = Enum('RecordingTarget', " ".join(['exact', 'electrode', 'fMRI']))
+    RecordingType = Enum('RecordingTarget', " ".join(['exact', 'fMRI']))
     """
     technique to record with
     """

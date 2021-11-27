@@ -58,7 +58,7 @@ class DicarloKar2019OST(BenchmarkBase):
         self._time_bins = TIME_BINS
 
     def __call__(self, candidate: BrainModel):
-        candidate.start_recording('IT', time_bins=self._time_bins, recording_type=BrainModel.RecordingType.electrode)
+        candidate.start_recording('IT', time_bins=self._time_bins, recording_type=BrainModel.RecordingType.exact)
         stimulus_set = place_on_screen(self._assembly.stimulus_set, target_visual_degrees=candidate.visual_degrees(),
                                        source_visual_degrees=self._visual_degrees)
         # Temporal recordings from large candidates take up a lot of memory and compute time.

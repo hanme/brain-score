@@ -81,7 +81,7 @@ class _Afraz2006(BenchmarkBase):
 
     def __call__(self, candidate: BrainModel):
         # record to later determine face-selectivity
-        candidate.start_recording('IT', time_bins=[(50, 100)], recording_type=BrainModel.RecordingType.electrode)
+        candidate.start_recording('IT', time_bins=[(50, 100)], recording_type=BrainModel.RecordingType.exact)
         recordings = candidate.look_at(self._assembly.stimulus_set)
 
         # "We trained two adult macaque monkeys to perform a face/non-face categorization task
