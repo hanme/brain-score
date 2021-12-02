@@ -2,6 +2,7 @@ import itertools
 
 import numpy as np
 from brainio.assemblies import merge_data_arrays, DataArray, DataAssembly
+from matplotlib import pyplot
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
@@ -164,11 +165,11 @@ class _Moeller2017(BenchmarkBase):
             perturbation_dict = {'type': stimulation,
                                  'perturbation_parameters': {
                                      **{
-                                     'current_pulse_mA': current,
-                                     'location': LazyLoad(lambda: self._perturbation_coordinates)
+                                         'current_pulse_mA': current,
+                                         'location': LazyLoad(lambda: self._perturbation_coordinates)
                                      }, **{key: value for key, value in STIMULATION_PARAMETERS.items()
                                            if key not in ['type', 'current_pulse_mA', 'location']
-                                     }
+                                           }
                                  }}
 
             perturbation_list.append(perturbation_dict)
@@ -192,8 +193,44 @@ class _Moeller2017(BenchmarkBase):
             truth += list((np.array(conditions) == 'same_id').astype(int))
         stimulus_set = np.vstack(stimulus_set)
 
+        return self.ThresholdDecoder().fit(stimulus_set, np.array(truth))
         return LogisticRegression(random_state=self._seed,
                                   solver='liblinear').fit(stimulus_set, truth)
+
+    class ThresholdDecoder:
+        def __init__(self):
+            self.threshold = None
+
+        def fit(self, features, labels):
+            assert features.shape[0] == len(labels)
+            assert set(labels) == {0, 1}
+            same_distance = self.compute_distance(features[labels == 1])
+            diff_distance = self.compute_distance(features[labels == 0])
+            # self.threshold = np.abs(diff_distance.mean() - same_distance.mean())  # midpoint of same/diff
+            # self.threshold = diff_distance.min()  # min diff
+            self.threshold = same_distance.max()  # max same
+            return self
+
+            fig, ax = pyplot.subplots()
+            ax.hist(same_distance, label='same')
+            ax.hist(diff_distance, label='diff')
+            fig.legend()
+            fig.show()
+
+        def predict(self, features):
+            distance = self.compute_distance(features)
+            # predictions = distance < self.threshold # midpoint
+            # predictions = 1 - (distance > self.threshold)  # min diff
+            predictions = distance < self.threshold  # max same
+            return predictions.astype(int)
+
+        def compute_distance(self, features):
+            features0 = features[:, features.shape[1] // 2:]
+            features1 = features[:, :features.shape[1] // 2]
+            distance = (features0 - features1)
+            summed_distance = np.abs(distance).sum(1)
+            return summed_distance
+
 
     def _sample_recordings(self, category_pool: DataArray, samples=500):  # TODO why 500
         """
@@ -208,8 +245,8 @@ class _Moeller2017(BenchmarkBase):
             all other Experiments, same means the exact same !note: decoder only trained on Faces
 
         :param category_pool: Model IT recordings, assumed be from one category only
-        :param samples: int: number of samples
-        :return: array (samples x length of two concatenated recordings), each line contains two recordings
+        :param samples: int: number of samples per same/different condition
+        :return: array (samples x 2, number of neurons x 2), each line contains two recordings
                  ground truth, for each line in array, specifying if the two recordings belong to the same/different ID
         """
         # TODO object and image_id disappear with subselection
@@ -369,6 +406,7 @@ class _Moeller2017(BenchmarkBase):
         else:
             return DataAssembly(arrays[0])
 
+
 def stimulation_same_different_significant_change(candidate_behaviors, aggregate_target):
     """
     Tests that the candidate behaviors changed in the same direction as the data after stimulation,
@@ -382,9 +420,9 @@ def stimulation_same_different_significant_change(candidate_behaviors, aggregate
     """
     # first figure out which direction the experiment went
     expected_same_direction = aggregate_target.sel(task='same', stimulated=True) - \
-                     aggregate_target.sel(task='same', stimulated=False)
+                              aggregate_target.sel(task='same', stimulated=False)
     expected_different_direction = aggregate_target.sel(task='different', stimulated=True) - \
-                     aggregate_target.sel(task='different', stimulated=False)
+                                   aggregate_target.sel(task='different', stimulated=False)
     # test if candidate's 'same' task changes significantly and in the same direction as the target
     same_behaviors = candidate_behaviors.sel(task='same')
 
@@ -394,7 +432,6 @@ def Moeller2017Experiment1():
     Stimulate face patch during face identification
     32 identities; 6 expressions each
     """
-
 
     return _Moeller2017(stimulus_class='Faces',
                         perturbation_location='within_facepatch',
