@@ -2,7 +2,6 @@ import itertools
 
 import numpy as np
 from brainio.assemblies import merge_data_arrays, DataArray, DataAssembly
-# from brainscore.metrics.performance_similarity import PerformanceSimilarity  # TODO
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
@@ -13,7 +12,10 @@ from brainscore.model_interface import BrainModel
 from brainscore.utils import LazyLoad
 from packaging.moeller2017 import collect_target_assembly
 
-# TODO within Face patch means within AM right now
+"""
+Benchmarks from the Moeller et al. 2017 paper (https://www.nature.com/articles/nn.4527).
+Only AM and outside-AM stimulation experiments are considered for now.
+"""
 
 BIBTEX = '''@article{article,
             author = {Moeller, Sebastian and Crapse, Trinity and Chang, Le and Tsao, Doris},
@@ -86,40 +88,38 @@ class _Moeller2017(BenchmarkBase):
                  Score.performance = performance aggregated per experiment
                  Score.raw_performance = performance per category
         """
-        self._compute_perturbation_coordinates(candidate)  # TODO move to modeltools
-        decoder = self._set_up_decoder(candidate)
+        self._compute_perturbation_coordinates(candidate)
+        decoder = self._set_up_decoder(candidate)  # TODO: to model-tools
 
         candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
-                                  recording_type=BrainModel.RecordingType.electrode)
+                                  recording_type=BrainModel.RecordingType.exact)
         candidate_performance = []
+        behaviors = []
         for perturbation in self._perturbations:
-            behavior = self._perform_task(candidate, perturbation=perturbation,
-                                          decoder=decoder)  # TODO move to modeltools
-            performance = self._compute_performance(behavior)
-            candidate_performance.append(performance)
-        candidate_performance = merge_data_arrays(candidate_performance)
+            candidate.perturb(perturbation=None, target='IT')  # reset
+            candidate.perturb(perturbation=perturbation['type'], target='IT',
+                              perturbation_parameters=perturbation['perturbation_parameters'])
 
-        score = self._metric(candidate_performance, self._target_assembly)
+            recordings = candidate.look_at(self._stimulus_set)
+            behavior = self._compute_behavior(recordings, decoder)  # TODO: move to model-tools
+
+            current_pulse_mA = perturbation['perturbation_parameters']['current_pulse_mA']
+            # behavior['current_pulse_mA'] = 'condition', [current_pulse_mA] * len(behavior['condition'])
+            # TODO: for some reason including current_pulse_mA in the condition dim
+            #  leads to duplicate index values during merging
+            behavior = behavior.expand_dims('current_pulse_mA')
+            behavior['current_pulse_mA'] = [current_pulse_mA]
+            behavior = type(behavior)(behavior)  # make sure current_pulse_mA is indexed
+            behaviors.append(behavior)
+
+            # TODO: keep raw trials to compute significance
+            # performance = self._compute_performance(behavior)
+            # candidate_performance.append(performance)
+        # candidate_performance = merge_data_arrays(candidate_performance)
+        behaviors = merge_data_arrays(behaviors)
+
+        score = self._metric(behaviors, self._target_assembly)
         return score
-
-    def _perform_task(self, candidate: BrainModel, perturbation: dict, decoder):
-        """
-        Perturb model and compute behavior w.r.t. task
-        :param candidate: BrainModel
-        :perturbation keys: type, perturbation_parameters
-        :return: DataAssembly: values = choice, dims = [truth, current_pulse_mA, condition, object_name]
-        """
-        candidate.perturb(perturbation=None, target='IT')  # reset
-        candidate.perturb(perturbation=perturbation['type'], target='IT',
-                          perturbation_parameters=perturbation['perturbation_parameters'])
-
-        IT_recordings = candidate.look_at(self._stimulus_set)
-
-        behavior = self._compute_behavior(IT_recordings, decoder)
-        behavior['current_pulse_mA'] = behavior.dims[0], \
-                                       [perturbation['perturbation_parameters']['current_pulse_mA']] * behavior.shape[0]
-        behavior = type(behavior)(behavior)  # make sure current_pulse_mA is indexed
-        return behavior
 
     def _compute_behavior(self, IT_recordings: DataArray, decoder):
         """
@@ -151,36 +151,6 @@ class _Moeller2017(BenchmarkBase):
         behaviors = self._merge_behaviors(behavior_data)
         return behaviors
 
-    def _compute_performance(self, behaviors: DataAssembly):
-        """
-        Given performance measure and behavior, compute performance w.r.t. current_pulse_mA, condition, object name
-        :param behaviors:
-            values: choice          : 'same_id'==1, 'different_id'==0
-            dims:   condition       : list of strings, ['same_id', 'different_id]
-            coords: truth           : 'same_id'==1, 'different_id'==0
-                    object name     : list of strings, category
-                    current_pulse_mA: float
-        :return: DataAssembly:
-            values: performances    : accuracy values
-            dims:   condition       : list of strings, ['same_id', 'different_id]
-            coords: object_name     : list of strings, category
-                    current_pulse_mA: float
-        """
-        performance_data = []
-        for object_name, current_pulse_mA, truth in itertools.product(set(behaviors.object_name.values),
-                                                                      set(behaviors.current_pulse_mA.values),
-                                                                      set(behaviors.truth.values)):
-            behavior = behaviors.sel(current_pulse_mA=current_pulse_mA, truth=truth, object_name=object_name)
-            performance = self._performance_measure(behavior, [truth] * len(behavior))
-            performance_array = DataAssembly(data=[performance.data[0]], dims='condition',
-                                             coords={'task': ('condition', [behavior.task.values[0]]),
-                                                     'object_name': ('condition', [object_name]),
-                                                     'current_pulse_mA': ('condition', [current_pulse_mA])})
-            performance_data.append(performance_array)
-
-        performances = merge_data_arrays(performance_data)
-        return performances
-
     def _set_up_perturbations(self, perturbation_location: str):
         """
         Create a list of dictionaries, each containing the parameters for one perturbation
@@ -193,9 +163,12 @@ class _Moeller2017(BenchmarkBase):
         for stimulation, current in zip(STIMULATION_PARAMETERS['type'], STIMULATION_PARAMETERS['current_pulse_mA']):
             perturbation_dict = {'type': stimulation,
                                  'perturbation_parameters': {
+                                     **{
                                      'current_pulse_mA': current,
-                                     'stimulation_duration_ms': STIMULATION_PARAMETERS['stimulation_duration_ms'],
                                      'location': LazyLoad(lambda: self._perturbation_coordinates)
+                                     }, **{key: value for key, value in STIMULATION_PARAMETERS.items()
+                                           if key not in ['type', 'current_pulse_mA', 'location']
+                                     }
                                  }}
 
             perturbation_list.append(perturbation_dict)
@@ -207,7 +180,7 @@ class _Moeller2017(BenchmarkBase):
         :return: trained linear regressor
         """
         candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
-                                  recording_type=BrainModel.RecordingType.electrode)
+                                  recording_type=BrainModel.RecordingType.exact)
         recordings = candidate.look_at(self._training_stimuli)
         samples = 500  # TODO why 500
 
@@ -396,12 +369,33 @@ class _Moeller2017(BenchmarkBase):
         else:
             return DataAssembly(arrays[0])
 
+def stimulation_same_different_significant_change(candidate_behaviors, aggregate_target):
+    """
+    Tests that the candidate behaviors changed in the same direction as the data after stimulation,
+    separately for same and different tasks.
+    :param candidate_behaviors: Per-trial behaviors (_not_ aggregate performance measures).
+    :param aggregate_target: Performance numbers for the experimental observations, i.e. _not_ per-trial data.
+        This will be used to determine the expected direction from stimulation (increase/decrease)
+        for each of the two tasks.
+    :return: A :class:`~brainscore.metrics.Score` of 1 if the candidate_behaviors significantly change in the same
+        direction as the aggregate_target, for each of the same and different tasks; 0 otherwise
+    """
+    # first figure out which direction the experiment went
+    expected_same_direction = aggregate_target.sel(task='same', stimulated=True) - \
+                     aggregate_target.sel(task='same', stimulated=False)
+    expected_different_direction = aggregate_target.sel(task='different', stimulated=True) - \
+                     aggregate_target.sel(task='different', stimulated=False)
+    # test if candidate's 'same' task changes significantly and in the same direction as the target
+    same_behaviors = candidate_behaviors.sel(task='same')
+
 
 def Moeller2017Experiment1():
     """
     Stimulate face patch during face identification
     32 identities; 6 expressions each
     """
+
+
     return _Moeller2017(stimulus_class='Faces',
                         perturbation_location='within_facepatch',
                         identifier='dicarlo.Moeller2017-Experiment_1',
