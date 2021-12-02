@@ -31,10 +31,10 @@ class SpatialCorrelationSimilarity(Metric):
         self.similarity_function = similarity_function
         self.bin_size = bin_size_mm
 
-    def __call__(self, target_statistic, candidate_statistic):
+    def __call__(self, candidate_statistic, target_statistic):
         '''
-        :param target_statistic: list of 2 lists, [0] distances -> binning over this, [1] correlation per distance value
         :param candidate_statistic: list of 2 lists, [0] distances -> binning over this, [1] correlation per distance value
+        :param target_statistic: list of 2 lists, [0] distances -> binning over this, [1] correlation per distance value
         '''
         self.target_statistic = target_statistic
         self.candidate_statistic = candidate_statistic

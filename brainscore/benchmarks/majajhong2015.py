@@ -126,8 +126,8 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
         self._neuroid_reliability = InternalConsistency()(assembly.transpose('presentation', 'neuroid'))
         self._stimulus_set = assembly.stimulus_set
         self._target_assembly = average_repetition(assembly)
-        self._score = SpatialCorrelationSimilarity(similarity_function=self.inv_ks_similarity,
-                                                   bin_size_mm=.1)  # .1 mm is an arbitrary choice
+        self._metric = SpatialCorrelationSimilarity(similarity_function=self.inv_ks_similarity,
+                                                    bin_size_mm=.1)  # .1 mm is an arbitrary choice
 
         self.bootstrap_samples = 100_000
         self.num_sample_arrs = 10  # number of simulated Utah arrays sampled from candidate model tissue
@@ -149,9 +149,9 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
 
         self._target_statistic = self.compute_global_tissue_statistic_target()
 
-        score = self._score(self._target_statistic, candidate_statistic)
-        score.attrs['target_statistic'] = self._target_statistic
+        score = self._metric(candidate_statistic, self._target_statistic)
         score.attrs['candidate_statistic'] = candidate_statistic
+        score.attrs['target_statistic'] = self._target_statistic
 
         return score
 
