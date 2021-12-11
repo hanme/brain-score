@@ -231,7 +231,6 @@ class _Moeller2017(BenchmarkBase):
             summed_distance = np.abs(distance).sum(1)
             return summed_distance
 
-
     def _sample_recordings(self, category_pool: DataArray, samples=500):  # TODO why 500
         """
         Create an array of randomly sampled recordings, each line is one task, i.e. two recordings which are to be
@@ -440,31 +439,30 @@ def Moeller2017Experiment1():
                         performance_measure=Accuracy())
 
 
-def Moeller2017Experiment2():
-    """
-    TODO  very unclean
-    i: Stimulate outside of the face patch during face identification
-    ii: Stimulate face patch during object identification
-    28 Objects; 3 viewing angles each
-    """
+"""
+TODO  very unclean
+i: Stimulate outside of the face patch during face identification
+ii: Stimulate face patch during object identification
+28 Objects; 3 viewing angles each
+"""
 
-    class _Moeller2017Experiment2(BenchmarkBase):
-        def __init__(self):
-            super().__init__(
-                identifier='dicarlo.Moeller2017-Experiment_2', ceiling_func=None, version=1, parent='IT', bibtex=BIBTEX)
-            self.benchmark1 = _Moeller2017(stimulus_class='Faces', perturbation_location='outside_facepatch',
-                                           identifier='dicarlo.Moeller2017-Experiment_2i',
-                                           metric=PerformanceSimilarity(), performance_measure=Accuracy())
-            self.benchmark2 = _Moeller2017(stimulus_class='Objects', perturbation_location='within_facepatch',
-                                           identifier='dicarlo.Moeller2017-Experiment_2ii',
-                                           metric=PerformanceSimilarity(), performance_measure=Accuracy())
 
-        def __call__(self, candidate):
-            import copy
-            candidate_copy = copy.copy(candidate)
-            return self.benchmark1(candidate), self.benchmark2(candidate_copy)
+class Moeller2017Experiment2(BenchmarkBase):
+    def __init__(self):
+        metric = None  # PerformanceSimilarity()
+        super().__init__(
+            identifier='dicarlo.Moeller2017-Experiment_2', ceiling_func=None, version=1, parent='IT', bibtex=BIBTEX)
+        self.benchmark1_outside_faces = _Moeller2017(stimulus_class='Faces', perturbation_location='outside_facepatch',
+                                                     identifier='dicarlo.Moeller2017-Experiment_2i',
+                                                     metric=metric, performance_measure=Accuracy())
+        self.benchmark2_objects = _Moeller2017(stimulus_class='Objects', perturbation_location='within_facepatch',
+                                               identifier='dicarlo.Moeller2017-Experiment_2ii',
+                                               metric=metric, performance_measure=Accuracy())
 
-    return _Moeller2017Experiment2()
+    def __call__(self, candidate):
+        import copy
+        candidate_copy = copy.copy(candidate)
+        return self.benchmark1_outside_faces(candidate), self.benchmark2_objects(candidate_copy)
 
 
 def Moeller2017Experiment3():
