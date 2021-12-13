@@ -1,9 +1,63 @@
 import numpy as np
 import pingouin as pg
 from brainio.assemblies import DataAssembly
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, fisher_exact
 
 from brainscore.metrics import Score, Metric
+
+
+class ContingencyMatch(Metric):
+    """
+    Tests that two contingency tables match, i.e.
+    Uses Fisher's exact test for statistical significance.
+    """
+
+    def __init__(self, category1_name: str, category1_value1: object, category1_value2: object,
+                 category2_name: str, category2_value1: object, category2_value2: object,
+                 significance_threshold=0.05):
+        """
+        :param category1_name, category2_name: The coordinate name corresponding to category 1/2, e.g. `stimulated`
+        :param category1_value1, category2_value1: The initial value of the category, e.g. `False`
+        :param category1_value2, category2_value2: The alternative value of the category, e.g. `True`
+        :param significance_threshold: At which probability threshold to consider effects significant
+        """
+        super(ContingencyMatch, self).__init__()
+        self.category1_value1 = category1_value1
+        self.category1_value2 = category1_value2
+        self.category2_name = category2_name
+        self.category2_value1 = category2_value1
+        self.category2_value2 = category2_value2
+        self.category1_name = category1_name
+        self.significance_threshold = significance_threshold
+
+    def __call__(self, source, target):
+        """
+        :param source: Aggregate performance numbers of two dimensions, `category1_name` x `category2_name`,
+            and two values each `category1_value1, category1_value2`, and `category2_value1, category2_value2`.
+            This will be used to determine the expected direction from the condition change (increase/decrease).
+        :param target: Same format as `source`.
+        :return: A :class:`~brainscore.metrics.Score` of 1 if the candidate_behaviors significantly change in the same
+            direction as the aggregate_target; 0 otherwise
+        """
+        source, target = self.align(source), self.align(target)
+        _, p_target = fisher_exact(target)
+        expect_significant = p_target < self.significance_threshold
+        _, p_source = fisher_exact(source)
+        source_significant = p_source < self.significance_threshold
+        return Score([expect_significant == source_significant],
+                     coords={'aggregation': ['center']}, dims=['aggregation'])
+
+        # first figure out which direction the target went
+        expected_same_direction = aggregate_target.sel(**{self.condition_name: self.condition_value2}) - \
+                                  aggregate_target.sel(**{self.condition_name: self.condition_value1})
+        # test if the source change is significant
+
+    def align(self, assembly):
+        # assume for now that everything is already in order instead of sorting ourselves
+        np.testing.assert_array_equal(assembly.dims, [self.category1_name, self.category2_name])
+        np.testing.assert_array_equal(assembly[self.category1_name], [self.category1_value1, self.category1_value2])
+        np.testing.assert_array_equal(assembly[self.category2_name], [self.category2_value1, self.category2_value2])
+        return assembly
 
 
 class SignificantPerformanceChange(Metric):
