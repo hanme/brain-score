@@ -1,0 +1,13 @@
+visual_field,inactivation,aggregation,value
+global,no,mean,0.022145922746781288
+global,no,error,0.0482403433476396
+global,muscimol,mean,-0.20034334763948491
+global,muscimol,error,-0.21957081545064366
+ipsi,no,mean,-0.039656652360514855
+ipsi,no,error,-0.07948497854077252
+ipsi,muscimol,mean,-0.16600858369098703
+ipsi,muscimol,error,-0.1962231759656652
+contra,no,mean,0.06678111587982849
+contra,no,error,0.10317596566523612
+contra,muscimol,mean,-0.2580257510729612
+contra,muscimol,error,-0.28824034334763937

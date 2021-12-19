@@ -1,3 +1,4 @@
+import pandas as pd
 from pathlib import Path
 
 import numpy as np
@@ -71,6 +72,31 @@ def collect_assembly(contra_hemisphere=True):
     stimulus_set = collect_stimulus_set(contra_hemisphere=contra_hemisphere)
     assembly.attrs['stimulus_set'] = stimulus_set
     assembly.attrs['stimulus_set_identifier'] = stimulus_set.identifier
+    return assembly
+
+
+def collect_summary_behavioral_effects():
+    """ fig 3B """
+    # data extracted with https://apps.automeris.io/wpd/ on 2021-07-09, points manually selected
+    data = pd.read_csv(Path(__file__).parent / 'fig3B.csv')
+    errors = data.groupby(['visual_field', 'inactivation']).apply(
+        lambda group: abs(group['value'][group['aggregation'] == 'error'].values
+                          - group['value'][group['aggregation'] == 'mean'].values)[0])
+    data.loc[data['aggregation'] == 'error', 'value'] = errors.values
+    data.loc[data['aggregation'] == 'error', 'aggregation'] = 'error'
+    data.loc[data['aggregation'] == 'mean', 'aggregation'] = 'center'
+
+    # package into xarray
+    assembly = DataAssembly(data['value'], coords={
+        'visual_field': ('summary', data['visual_field']),
+        'inactivation_description': ('summary', data['inactivation']),
+        'aggregation': ('summary', data['aggregation']),
+    }, dims=['summary'])
+    assembly = assembly.unstack()
+    assembly['inactivated'] = ('inactivation_description', [condition == 'muscimol'
+                                                            for condition in assembly['inactivation_description']])
+    assembly = assembly.stack(inactivation=['inactivation_description'])
+    assembly = DataAssembly(assembly)
     return assembly
 
 
