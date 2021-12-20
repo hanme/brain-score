@@ -46,6 +46,8 @@ OPTOGENETIC_PARAMETERS = {
     "infectious_units_per_ml": 2E12,
     # 200-ms-duration laser pulse
     "laser_pulse_duration_ms": 200,
+    # "total fiber output power ∼12 mW"
+    "fiber_output_power_mW": 12,
 }
 MUSCIMOL_PARAMETERS = {
     # "1 μL of muscimol (5 mg/mL) was injected at 0.1 μL/min rate"
