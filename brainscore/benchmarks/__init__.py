@@ -272,10 +272,12 @@ def _experimental_benchmark_pool():
     pool['dicarlo.Afraz2015.muscimol-delta_accuracy_nonface'] = LazyLoad(Afraz2015MuscimolDeltaAccuracyNonFace)
     ## Rajalingham2019
     from brainscore.benchmarks.rajalingham2019 import \
-        Rajalingham2019DeficitsSignificant, Rajalingham2019SpatialDeficits, \
-        Rajalingham2019DeficitPredictionTask, Rajalingham2019DeficitPredictionObject
+        Rajalingham2019DeficitsSignificant, Rajalingham2019SpatialDeficitsSignificant, \
+        Rajalingham2019DeficitPredictionTask, Rajalingham2019DeficitPredictionObject, \
+        Rajalingham2019SummaryBehavioralEffects
     pool['dicarlo.Rajalingham2019-deficits_significant'] = LazyLoad(Rajalingham2019DeficitsSignificant)
-    pool['dicarlo.Rajalingham2019-spatial_deficit_similarity'] = LazyLoad(Rajalingham2019SpatialDeficits)
+    pool['dicarlo.Rajalingham2019-summary_behavioral_effects'] = LazyLoad(Rajalingham2019SummaryBehavioralEffects)
+    pool['dicarlo.Rajalingham2019-spatial_deficits_significant'] = LazyLoad(Rajalingham2019SpatialDeficitsSignificant)
     pool['dicarlo.Rajalingham2019-deficit_prediction_task'] = LazyLoad(Rajalingham2019DeficitPredictionTask)
     pool['dicarlo.Rajalingham2019-deficit_prediction_object'] = LazyLoad(Rajalingham2019DeficitPredictionObject)
 

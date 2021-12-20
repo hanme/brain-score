@@ -1,9 +1,11 @@
 import itertools
 import logging
-import numpy as np
-import xarray as xr
-import pandas as pd
 import warnings
+
+import numpy as np
+import pandas as pd
+import xarray as xr
+from brainio.assemblies import merge_data_arrays, walk_coords, DataAssembly, array_is_element
 from numpy.random import RandomState
 from pandas import DataFrame
 from scipy.spatial.distance import squareform, pdist
@@ -12,8 +14,6 @@ from tqdm import tqdm
 from xarray import DataArray
 
 import brainscore
-from model_tools.brain_transformation.tissue.neural_perturbation import MuscimolInjection
-from brainio.assemblies import merge_data_arrays, walk_coords, DataAssembly, array_is_element
 from brainscore.benchmarks import BenchmarkBase
 from brainscore.metrics import Score
 from brainscore.metrics.behavior_differences import DeficitPredictionTask, DeficitPredictionObject
@@ -24,7 +24,7 @@ from brainscore.metrics.significant_match import SignificantCorrelation
 from brainscore.metrics.spatial_correlation import SpatialCorrelationSimilarity
 from brainscore.metrics.transformations import CrossValidation
 from brainscore.model_interface import BrainModel
-from brainscore.utils import fullname, LazyLoad
+from brainscore.utils import fullname
 from packaging.rajalingham2019 import collect_assembly
 
 TASK_LOOKUP = {
@@ -64,7 +64,7 @@ MUSCIMOL_PARAMETERS = {
 
 
 class _Rajalingham2019(BenchmarkBase):
-    def __init__(self, identifier, metric, ceiling_func=None, num_sites=9):
+    def __init__(self, identifier, metric, ceiling_func=None, num_sites_per_hemisphere=10):
         self._target_assembly = collect_assembly()
         self._training_stimuli = brainscore.get_stimulus_set('dicarlo.hvm')
         self._training_stimuli['image_label'] = self._training_stimuli['object_name']
@@ -73,7 +73,7 @@ class _Rajalingham2019(BenchmarkBase):
             self._target_assembly.stimulus_set['object_name'])]
         self._test_stimuli = self._target_assembly.stimulus_set
 
-        self._num_sites = num_sites
+        self._num_sites_per_hemisphere = num_sites_per_hemisphere
         self._metric = metric
         self._logger = logging.getLogger(fullname(self))
         super(_Rajalingham2019, self).__init__(
@@ -103,9 +103,16 @@ class _Rajalingham2019(BenchmarkBase):
         # (from approximately + 8mm AP to approx + 20mm AP)."
         # stay between [0, 10] since that is the extent of the tissue
 
-        for site, injection_location in enumerate(self._sample_injection_locations()):
+        random_state = RandomState(1)
+        injection_locations = random_state.uniform(low=0, high=10, size=(self._num_sites_per_hemisphere * 2, 2))
+        injection_hemispheres = (['left'] * self._num_sites_per_hemisphere) + \
+                                (['right'] * self._num_sites_per_hemisphere)
+        for site, (hemisphere, injection_location) in enumerate(zip(injection_hemispheres, injection_locations)):
             perturbation_parameters = {**MUSCIMOL_PARAMETERS,
-                                       **{'location': injection_location}}
+                                       **{'location': injection_location, 'hemisphere': hemisphere}}
+            # TODO: we need to change the match-to-sample task paradigm here in order to account for lateralization.
+            #  In particular, they treat contra trials as those trials where
+            #  "images in which the center of the target object was contralateral to the injection hemisphere"
             perturbed_behavior = self._perform_task_perturbed(candidate,
                                                               perturbation_parameters=perturbation_parameters,
                                                               site_number=site)
@@ -135,20 +142,13 @@ class _Rajalingham2019(BenchmarkBase):
         behavior = behavior.expand_dims('injected').expand_dims('site')
         behavior['injected'] = [True]
         behavior['site_iteration'] = 'site', [site_number]
+        behavior['hemisphere'] = 'site', [perturbation_parameters['hemisphere']]
         behavior['site_x'] = 'site', [perturbation_parameters['location'][0]]
         behavior['site_y'] = 'site', [perturbation_parameters['location'][1]]
         behavior['site_z'] = 'site', [0]
         behavior = type(behavior)(behavior)  # make sure site and injected are indexed
 
         return behavior
-
-    def _sample_injection_locations(self):
-        border_area = MuscimolInjection()._cov * 1  # TODO
-        injection_locations = np.random.rand(self._num_sites * 10) * (10 - border_area)
-        injection_locations = injection_locations[injection_locations > border_area]
-        injection_locations = injection_locations[:self._num_sites * 2]
-        injection_locations = injection_locations.reshape((self._num_sites, 2))
-        return injection_locations
 
     @staticmethod
     def align_task_names(behaviors):
@@ -179,8 +179,14 @@ def Rajalingham2019DeficitsSignificant():
                             metric=SpatialCharacterizationMetric(SignificantCorrelation(x_coord='distance')))
 
 
-def Rajalingham2019SpatialDeficits():
+def Rajalingham2019SummaryBehavioralEffects():
+    return _Rajalingham2019(identifier='Rajalingham2019-summary_behavioral_effects',
+                            metric=None)  # TODO
+
+
+def Rajalingham2019SpatialDeficitsSignificant():
     return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-spatial_deficit_similarity',
+                            # TODO: correlate within-hemisphere only
                             metric=SpatialCharacterizationMetric(
                                 DifferenceOfCorrelations(correlation_variable='distance')))
 
@@ -204,11 +210,6 @@ def Rajalingham2019DeficitPredictionObject():
 def Rajalingham2019DeficitsSignificant():
     return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-deficits_significant',
                             metric=SpatialCharacterizationMetric())
-
-
-def Rajalingham2019SpatialDeficits():
-    return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-spatial_deficit_similarity',
-                            metric=DifferenceOfCorrelations(correlation_variable='distance'))
 
 
 def DicarloRajalingham2019SpatialDeficitsQuantified():
@@ -266,7 +267,6 @@ class SpatialCharacterizationMetric:
     def compute_response_deficit_distance_candidate(self, dprime_assembly):
         distances, correlations = self._compute_response_deficit_distance(dprime_assembly)
         mask = np.triu_indices(dprime_assembly.site.size)
-
         return self.to_xarray(correlations[mask], distances[mask])
 
     def _compute_response_deficit_distance(self, dprime_assembly):
@@ -279,6 +279,7 @@ class SpatialCharacterizationMetric:
         behavioral_differences = self.compute_differences(dprime_assembly)
         # dealing with nan values while correlating; not np.ma.corrcoef: https://github.com/numpy/numpy/issues/15601
         correlations = DataFrame(behavioral_differences.data).T.corr().values
+        correlations[np.isnan(distances)] = None
 
         return distances, correlations
 
@@ -295,7 +296,7 @@ class SpatialCharacterizationMetric:
             dims=["meta"],
             coords={
                 'meta': pd.MultiIndex.from_product([distances, [source], [array]],
-                                                   names=('distances', 'source', 'array'))
+                                                   names=('distance', 'source', 'array'))
             }
         )
 
@@ -306,8 +307,15 @@ class SpatialCharacterizationMetric:
         locations = np.stack([dprime_assembly.site.site_x.data,
                               dprime_assembly.site.site_y.data,
                               dprime_assembly.site.site_z.data]).T
-
-        return squareform(pdist(locations, metric='euclidean'))
+        distances = pdist(locations, metric='euclidean')
+        distances = squareform(distances)
+        # ignore distances from different hemispheres
+        if dprime_assembly['hemisphere'].values.size > 1:
+            same_hemispheres = np.repeat([dprime_assembly['hemisphere'].values], len(distances), axis=0) == \
+                               np.repeat(dprime_assembly['hemisphere'].values, len(distances))\
+                                   .reshape(len(distances), len(distances))
+            distances[~same_hemispheres] = None
+        return distances
 
     @property
     def ceiling(self):
