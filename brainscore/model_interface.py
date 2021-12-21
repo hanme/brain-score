@@ -21,6 +21,11 @@ class BrainModel:
     location to record from
     """
 
+    Hemisphere = Enum('Hemisphere', " ".join(['left', 'right']))
+    """
+    the hemisphere to record in
+    """
+
     RecordingType = Enum('RecordingTarget', " ".join(['exact', 'fMRI']))
     """
     technique to record with
@@ -82,6 +87,7 @@ class BrainModel:
     def start_recording(self,
                         recording_target: RecordingTarget,
                         time_bins: List[Tuple[int, int]],
+                        hemisphere: Hemisphere,
                         recording_type: RecordingType):
         """
         Instructs the model to begin recording in a specified
@@ -105,6 +111,7 @@ class BrainModel:
         :param recording_target: which location to record from
         :param time_bins: which time_bins to record as a list of integer tuples,
             e.g. `[(50, 100), (100, 150), (150, 200)]` or `[(70, 170)]`
+        :param hemisphere: in which hemisphere to record
         :param recording_type: with which technique to record with
         """
         raise NotImplementedError()

@@ -93,34 +93,43 @@ class _Afraz2015Optogenetics(BenchmarkBase):
         return collect_site_deltas()
 
     def __call__(self, candidate: BrainModel):
-        # record to determine face-selectivity
-        candidate.start_recording('IT', time_bins=[(50, 100)], recording_type=BrainModel.RecordingType.exact)
-        recordings = candidate.look_at(self._selectivity_stimuli)
-
-        # sub-select recordings to match sites in experiment
-        recordings = self.subselect_recordings(recordings)
-
         # "In practice, we first trained the animals on a fixed set of 400 images (200 males and 200 females)."
         candidate.start_task(BrainModel.Task.probabilities, fitting_stimuli=self._fitting_stimuli)
         unperturbed_behavior = candidate.look_at(self._assembly.stimulus_set)
 
-        # This benchmark ignores the parafoveal presentation of images.
-        suppression_locations = np.stack((recordings['tissue_x'], recordings['tissue_y'])).T.tolist()
         candidate_behaviors = []
-        for site, location in enumerate(tqdm(suppression_locations, desc='injection locations')):
-            candidate.perturb(perturbation=None, target='IT')  # reset
-            self._logger.debug(f"Suppressing at {location}")
-            candidate.perturb(perturbation=BrainModel.Perturbation.optogenetic_suppression,
-                              target='IT', perturbation_parameters={
-                    **{'location': location}, **OPTOGENETIC_PARAMETERS})
-            behavior = candidate.look_at(self._assembly.stimulus_set)
-            behavior = behavior.expand_dims('site')
-            behavior['site_iteration'] = 'site', [site]
-            behavior['site_x'] = 'site', [location[0]]
-            behavior['site_y'] = 'site', [location[1]]
-            behavior = type(behavior)(behavior)  # make sure site is indexed
-            candidate_behaviors.append(behavior)
+        recordings = []
+        for hemisphere in [BrainModel.Hemisphere.left, BrainModel.Hemisphere.right]:
+            # record to determine face-selectivity
+            candidate.start_task(BrainModel.Task.passive, fitting_stimuli=None)
+            candidate.start_recording('IT', time_bins=[(50, 100)],
+                                      hemisphere=hemisphere, recording_type=BrainModel.RecordingType.exact)
+            hemisphere_recordings = candidate.look_at(self._selectivity_stimuli)
+
+            # sub-select recordings to match sites in experiment
+            hemisphere_recordings = self.subselect_recordings(hemisphere_recordings)
+            recordings.append(hemisphere_recordings)
+
+            candidate.start_task(BrainModel.Task.probabilities, fitting_stimuli=self._fitting_stimuli)
+            # This benchmark ignores the parafoveal presentation of images.
+            suppression_locations = np.stack((hemisphere_recordings['tissue_x'],
+                                              hemisphere_recordings['tissue_y'])).T.tolist()
+            for site, location in enumerate(tqdm(suppression_locations, desc='injection locations')):
+                candidate.perturb(perturbation=None, target='IT')  # reset
+                self._logger.debug(f"Suppressing at {location}")
+                candidate.perturb(perturbation=BrainModel.Perturbation.optogenetic_suppression,
+                                  target='IT', perturbation_parameters={
+                        **{'location': location}, **OPTOGENETIC_PARAMETERS})
+                behavior = candidate.look_at(self._assembly.stimulus_set)
+                behavior = behavior.expand_dims('site')
+                behavior['site_iteration'] = 'site', [site]
+                behavior['site_x'] = 'site', [location[0]]
+                behavior['site_y'] = 'site', [location[1]]
+                behavior['hemisphere'] = 'site', [hemisphere.name]
+                behavior = type(behavior)(behavior)  # make sure site is indexed
+                candidate_behaviors.append(behavior)
         candidate_behaviors = merge_data_arrays(candidate_behaviors)
+        recordings = merge_data_arrays(recordings)
 
         return self.score_behaviors(candidate_behaviors, unperturbed_behavior, recordings)
 
@@ -177,9 +186,7 @@ def Afraz2015OptogeneticOverallDeltaAccuracy():
 
 class _Afraz2015OptogeneticOverallAccuracy(_Afraz2015Optogenetics):
     def collect_assembly(self):
-        assembly = collect_delta_overall_accuracy()
-        assembly = assembly.sel(visual_field='contra')  # ignore ipsilateral effects
-        return assembly
+        return collect_delta_overall_accuracy()
 
     def subselect_recordings(self, recordings):
         # We here randomly sub-select the recordings to match the number of stimulation sites in the experiment, based
