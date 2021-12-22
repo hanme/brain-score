@@ -10,11 +10,7 @@ from brainio.assemblies import DataAssembly
 EXPECTED_CATEGORIES = ['dog', 'bear', 'elephant', 'airplane3', 'chair0']
 
 
-def collect_assembly(contra_hemisphere=True):
-    """
-    :param contra_hemisphere: whether to only select data and associated stimuli
-        where the target object was contralateral to the injection hemisphere
-    """
+def collect_assembly():
     path = Path(__file__).parent / 'Rajalingham2019_data_summary.mat'
     data = scipy.io.loadmat(path)['data_summary']
     struct = {d[0]: v for d, v in zip(data.dtype.descr, data[0, 0])}
@@ -26,7 +22,7 @@ def collect_assembly(contra_hemisphere=True):
         def __missing__(self, key):
             return key
 
-    dim_replace = missing_dict({'sub_metric': 'hemisphere', 'nboot': 'bootstrap', 'exp': 'site',
+    dim_replace = missing_dict({'sub_metric': 'visual_field', 'nboot': 'bootstrap', 'exp': 'site',
                                 'niter': 'trial_split', 'subj': 'subject'})
     condition_replace = {'ctrl': 'saline', 'inj': 'muscimol'}
     dims = [dim_replace[v[0]] for v in k1['dim_labels'][0]]
@@ -54,8 +50,6 @@ def collect_assembly(contra_hemisphere=True):
                             dims=['injected'] + dims)
     assembly['monkey'] = 'site', ['M' if site <= 9 else 'P' for site in assembly['site_number'].values]
     assembly = assembly.squeeze('k').squeeze('trial_split')
-    if contra_hemisphere:
-        assembly = assembly.sel(hemisphere='contra')
     assembly = assembly.sel(metric='o2_dp')
     assembly = assembly[{'subject': [injection == 'muscimol' for injection in assembly['injection'].values]}]
     assembly = assembly.squeeze('subject')  # squeeze single-element subject dimension since data are pooled already
@@ -69,7 +63,7 @@ def collect_assembly(contra_hemisphere=True):
     assembly = DataAssembly(assembly)  # reindex
 
     # load stimulus_set subsampled from hvm
-    stimulus_set = collect_stimulus_set(contra_hemisphere=contra_hemisphere)
+    stimulus_set = collect_stimulus_set()
     assembly.attrs['stimulus_set'] = stimulus_set
     assembly.attrs['stimulus_set_identifier'] = stimulus_set.identifier
     return assembly
@@ -100,7 +94,7 @@ def collect_summary_behavioral_effects():
     return assembly
 
 
-def collect_stimulus_set(contra_hemisphere=True):
+def collect_stimulus_set(contra_visualfield=False):
     # load stimulus_set subsampled from hvm
     stimulus_set_meta = scipy.io.loadmat('/braintree/home/msch/rr_share_topo/topoDCNN/dat/metaparams.mat')
     stimulus_set_ids = stimulus_set_meta['id']
@@ -110,6 +104,6 @@ def collect_stimulus_set(contra_hemisphere=True):
     stimulus_set = stimulus_set[stimulus_set['object_name'].isin(EXPECTED_CATEGORIES)]
     stimulus_set['image_label'] = stimulus_set['truth'] = stimulus_set['object_name']  # 10 labels at this point
     stimulus_set.identifier = 'dicarlo.hvm_10'
-    if contra_hemisphere:
+    if contra_visualfield:
         stimulus_set = stimulus_set[(stimulus_set['rxz'] > 0) & (stimulus_set['variation'] == 6)]
     return stimulus_set
