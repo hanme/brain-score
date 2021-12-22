@@ -81,11 +81,12 @@ class SignificantPerformanceChange(Metric):
         self.condition_value1 = condition_value1
         self.condition_value2 = condition_value2
         self.significance_threshold = significance_threshold
-        self.trial_dimension=trial_dimension
+        self.trial_dimension = trial_dimension
 
     def __call__(self, source, aggregate_target):
         """
-        :param source: Per-trial behaviors (_not_ aggregate performance measures) in the `presentation` dimension.
+        :param source: Per-trial behaviors (_not_ aggregate performance measures),
+            in the `self.trial_dimension` dimension.
         :param aggregate_target: Performance numbers for the experimental observations, i.e. _not_ per-trial data.
             This will be used to determine the expected direction from the condition change (increase/decrease).
             Note that since these are aggregate numbers, a significant change is assumed for the target.

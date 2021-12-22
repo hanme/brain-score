@@ -277,8 +277,9 @@ def _experimental_benchmark_pool():
     pool['dicarlo.Afraz2015.muscimol-delta_accuracy_face'] = LazyLoad(Afraz2015MuscimolDeltaAccuracyFace)
     pool['dicarlo.Afraz2015.muscimol-delta_accuracy_nonface'] = LazyLoad(Afraz2015MuscimolDeltaAccuracyNonFace)
     ## Moeller2017
-    from brainscore.benchmarks.moeller2017 import Moeller2017Experiment1
-    pool['tsao.Moeller2017.experiment1'] = LazyLoad(Moeller2017Experiment1)
+    from brainscore.benchmarks.moeller2017 import Moeller2017Experiment1SameDecreaseDifferentIncrease
+    pool['tsao.Moeller2017.experiment1-same_decrease_different_increase'] = LazyLoad(
+        Moeller2017Experiment1SameDecreaseDifferentIncrease)
     ## Rajalingham2019
     from brainscore.benchmarks.rajalingham2019 import \
         Rajalingham2019GlobalDeficitsSignificant, Rajalingham2019SpatialCorrelationSignificant, \

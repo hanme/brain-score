@@ -1,16 +1,13 @@
-import itertools
-
 import numpy as np
 from brainio.assemblies import merge_data_arrays, DataArray, DataAssembly
 from matplotlib import pyplot
-from scipy.stats import zscore
-from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from tqdm import tqdm
 
 from brainscore.benchmarks import BenchmarkBase
 from brainscore.metrics import Metric
 from brainscore.metrics.accuracy import Accuracy
+from brainscore.metrics.significant_match import SignificantPerformanceChange
 from brainscore.model_interface import BrainModel
 from brainscore.utils import LazyLoad
 from packaging.moeller2017 import collect_target_assembly
@@ -95,7 +92,9 @@ class _Moeller2017(BenchmarkBase):
         decoder = self._set_up_decoder(candidate)  # TODO: to model-tools
 
         candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
-                                  recording_type=BrainModel.RecordingType.exact)
+                                  recording_type=BrainModel.RecordingType.exact,
+                                  # "the nonstimulated right hemisphere."
+                                  hemisphere=BrainModel.Hemisphere.left)
         candidate_performance = []
         behaviors = []
         for perturbation in self._perturbations:
@@ -107,19 +106,16 @@ class _Moeller2017(BenchmarkBase):
             behavior = self._compute_behavior(recordings, decoder)  # TODO: move to model-tools
 
             current_pulse_mA = perturbation['perturbation_parameters']['current_pulse_mA']
-            # behavior['current_pulse_mA'] = 'condition', [current_pulse_mA] * len(behavior['condition'])
-            # TODO: for some reason including current_pulse_mA in the condition dim
-            #  leads to duplicate index values during merging
-            behavior = behavior.expand_dims('current_pulse_mA')
-            behavior['current_pulse_mA'] = [current_pulse_mA]
+            behavior = behavior.expand_dims('stimulation')
+            behavior['current_pulse_mA'] = 'stimulation', [current_pulse_mA]
+            behavior['stimulated'] = 'stimulation', [current_pulse_mA > 0]
             behavior = type(behavior)(behavior)  # make sure current_pulse_mA is indexed
             behaviors.append(behavior)
-
-            # TODO: keep raw trials to compute significance
-            # performance = self._compute_performance(behavior)
-            # candidate_performance.append(performance)
-        # candidate_performance = merge_data_arrays(candidate_performance)
         behaviors = merge_data_arrays(behaviors)
+        # flatten
+        behaviors = behaviors.reset_index('stimulation').reset_index('behavior') \
+            .stack(condition=['stimulation', 'behavior'])
+        behaviors = type(behaviors)(behaviors)
 
         score = self._metric(behaviors, self._target_assembly)
         return score
@@ -164,10 +160,10 @@ class _Moeller2017(BenchmarkBase):
             # fig.show()
 
             choices = (decoder.predict(recordings) > .5).astype(int)
-            behavior = DataArray(data=choices, dims='condition',
-                                 coords={'task': ('condition', conditions),
-                                         'truth': ('condition', (np.array(conditions) == 'same_id').astype(int)),
-                                         'object_name': ('condition', [object_name] * samples * 2)})
+            behavior = DataArray(data=choices, dims='behavior',
+                                 coords={'task': ('behavior', conditions),
+                                         'truth': ('behavior', (np.array(conditions) == 'same_id').astype(int)),
+                                         'object_name': ('behavior', [object_name] * samples * 2)})
             behavior_data.append(behavior)
 
         behaviors = self._merge_behaviors(behavior_data)
@@ -478,16 +474,17 @@ def stimulation_same_different_significant_change(candidate_behaviors, aggregate
     :return: A :class:`~brainscore.metrics.Score` of 1 if the candidate_behaviors significantly change in the same
         direction as the aggregate_target, for each of the same and different tasks; 0 otherwise
     """
-    # first figure out which direction the experiment went
-    expected_same_direction = aggregate_target.sel(task='same', stimulated=True) - \
-                              aggregate_target.sel(task='same', stimulated=False)
-    expected_different_direction = aggregate_target.sel(task='different', stimulated=True) - \
-                                   aggregate_target.sel(task='different', stimulated=False)
-    # test if candidate's 'same' task changes significantly and in the same direction as the target
-    same_behaviors = candidate_behaviors.sel(task='same')
+    change_metric = SignificantPerformanceChange(condition_name='current_pulse_mA',
+                                                 condition_value1=0, condition_value2=300, trial_dimension='condition')
+    score_same = change_metric(candidate_behaviors.sel(task='same_id'), aggregate_target.sel(task='same_id'))
+    score_different = change_metric(candidate_behaviors.sel(task='different_id'), aggregate_target.sel(task='same_id'))
+    joint_score = score_same & score_different
+    joint_score.attrs['score_same'] = score_same
+    joint_score.attrs['score_different'] = score_different
+    return joint_score
 
 
-def Moeller2017Experiment1():
+def Moeller2017Experiment1SameDecreaseDifferentIncrease():
     """
     Stimulate face patch during face identification
     32 identities; 6 expressions each
@@ -496,7 +493,7 @@ def Moeller2017Experiment1():
     return _Moeller2017(stimulus_class='Faces',
                         perturbation_location='within_facepatch',
                         identifier='dicarlo.Moeller2017-Experiment_1',
-                        metric=None,  # PerformanceSimilarity(),
+                        metric=stimulation_same_different_significant_change,
                         performance_measure=Accuracy())
 
 
