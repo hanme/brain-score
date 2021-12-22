@@ -67,19 +67,21 @@ class SignificantPerformanceChange(Metric):
     """
 
     def __init__(self, condition_name: str, condition_value1: object, condition_value2: object,
-                 significance_threshold=0.05):
+                 significance_threshold=0.05, trial_dimension='presentation'):
         """
         :param condition_name: The coordinate name corresponding to the condition for which performance is tested,
             e.g. `laser_on`
         :param condition_value1: The initial value of the condition, e.g. `False`
         :param condition_value2: The value of the condition after changing it, e.g. `True`
         :param significance_threshold: At which probability threshold to consider effects significant
+        :param trial_dimension: Which dimension holds accuracy trials in the source assembly
         """
         super(SignificantPerformanceChange, self).__init__()
         self.condition_name = condition_name
         self.condition_value1 = condition_value1
         self.condition_value2 = condition_value2
         self.significance_threshold = significance_threshold
+        self.trial_dimension=trial_dimension
 
     def __call__(self, source, aggregate_target):
         """
@@ -96,14 +98,49 @@ class SignificantPerformanceChange(Metric):
         expected_direction = target_accuracy2 - target_accuracy1
         # test if the source change is significant
         difference_significant = is_significantly_different(DataAssembly(source), between=self.condition_name)
-        accuracy1 = source.sel(**{self.condition_name: self.condition_value1}).mean('presentation')
-        accuracy2 = source.sel(**{self.condition_name: self.condition_value2}).mean('presentation')
+        accuracy1 = source.sel(**{self.condition_name: self.condition_value1}).mean(self.trial_dimension)
+        accuracy2 = source.sel(**{self.condition_name: self.condition_value2}).mean(self.trial_dimension)
         source_difference = accuracy2 - accuracy1
         # match?
         same_direction = np.sign(source_difference) == np.sign(expected_direction)
         score = same_direction and difference_significant
         score = Score([score], coords={'aggregation': ['center']}, dims=['aggregation'])
         score.attrs['delta_accuracy'] = source_difference
+        return score
+
+
+class NoSignificantPerformanceChange(Metric):
+    """
+    Tests that the candidate behaviors did not change.
+    Significance tests are run with ANOVA.
+    """
+
+    def __init__(self, condition_name: str, condition_value1: object, condition_value2: object,
+                 significance_threshold=0.05):
+        """
+        :param condition_name: The coordinate name corresponding to the condition for which performance is tested,
+            e.g. `laser_on`
+        :param condition_value1: The initial value of the condition, e.g. `False`
+        :param condition_value2: The value of the condition after changing it, e.g. `True`
+        :param significance_threshold: At which probability threshold to consider effects significant
+        """
+        super(NoSignificantPerformanceChange, self).__init__()
+        self.condition_name = condition_name
+        self.condition_value1 = condition_value1
+        self.condition_value2 = condition_value2
+        self.significance_threshold = significance_threshold
+
+    def __call__(self, source, aggregate_target):
+        """
+        :param source: Per-trial behaviors (_not_ aggregate performance measures) in the `presentation` dimension.
+        :param aggregate_target: Target assembly, will be ignored.
+        :return: A :class:`~brainscore.metrics.Score` of 1 if the candidate_behaviors did not significantly change;
+            0 otherwise
+        """
+        # test if the source change is significant
+        difference_significant = is_significantly_different(DataAssembly(source), between=self.condition_name)
+        score = not difference_significant
+        score = Score([score], coords={'aggregation': ['center']}, dims=['aggregation'])
         return score
 
 

@@ -14,7 +14,7 @@ from brainscore.metrics import Score
 from brainscore.metrics.difference_of_correlations import DifferenceOfCorrelations
 from brainscore.metrics.difference_of_fractions import DifferenceOfFractions
 from brainscore.metrics.significant_match import SignificantCorrelation, SignificantPerformanceChange, \
-    is_significantly_different
+    is_significantly_different, NoSignificantPerformanceChange
 from brainscore.model_interface import BrainModel
 from brainscore.utils import fullname
 from packaging.afraz2015 import muscimol_delta_overall_accuracy, collect_stimuli, collect_site_deltas, \
@@ -156,12 +156,30 @@ class _Afraz2015Optogenetics(BenchmarkBase):
         return recordings
 
 
-def Afraz2015OptogeneticOverallDeltaAccuracySignificant():
+def Afraz2015OptogeneticContraDeltaAccuracySignificant():
     metric = SignificantPerformanceChange(condition_name='laser_on', condition_value1=False, condition_value2=True)
+
+    def filter_contra_metric(source_assembly, target_assembly):
+        source_assembly = source_assembly.sel(hemisphere='left')  # FIXME
+        target_assembly = target_assembly.sel(visual_field='contra')
+        return metric(source_assembly, target_assembly)
 
     return _Afraz2015OptogeneticOverallAccuracy(
         metric_identifier='delta_accuracy_significant',
-        metric=metric)
+        metric=filter_contra_metric)
+
+
+def Afraz2015OptogeneticIpsiDeltaAccuracyInsignificant():
+    metric = NoSignificantPerformanceChange(condition_name='laser_on', condition_value1=False, condition_value2=True)
+
+    def filter_ipsi_metric(source_assembly, target_assembly):
+        source_assembly = source_assembly.sel(hemisphere='right')  # FIXME
+        target_assembly = target_assembly.sel(visual_field='ipsi')
+        return metric(source_assembly, target_assembly)
+
+    return _Afraz2015OptogeneticOverallAccuracy(
+        metric_identifier='delta_accuracy_significant',
+        metric=filter_ipsi_metric)
 
 
 def Afraz2015OptogeneticOverallDeltaAccuracy():

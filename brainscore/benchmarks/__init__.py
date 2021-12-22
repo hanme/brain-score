@@ -249,18 +249,24 @@ def _experimental_benchmark_pool():
     from .rajalingham2020 import DicarloRajalingham2020ITPLS
     pool['dicarlo.Rajalingham2020.IT-pls'] = LazyLoad(DicarloRajalingham2020ITPLS)
     # Schrimpf et al. 2021 perturbation benchmarks
+    ## response correlation
+    from brainscore.benchmarks.majajhong2015 import DicarloMajajHong2015ITSpatialCorrelation
+    pool['dicarlo.MajajHong2015.IT-spatial_correlation'] = LazyLoad(DicarloMajajHong2015ITSpatialCorrelation)
     ## Afraz2006
     from brainscore.benchmarks.afraz2006 import Afraz2006FaceDependentShiftSignificant, Afraz2006FaceDependentShift
     pool['esteky.Afraz2006-shift_significant'] = LazyLoad(Afraz2006FaceDependentShiftSignificant)
     pool['esteky.Afraz2006-face_dependent_shift'] = LazyLoad(Afraz2006FaceDependentShift)
     ## Afraz2015
     from brainscore.benchmarks.afraz2015 import \
-        Afraz2015OptogeneticOverallDeltaAccuracySignificant, Afraz2015OptogeneticOverallDeltaAccuracy, \
+        Afraz2015OptogeneticContraDeltaAccuracySignificant, Afraz2015OptogeneticIpsiDeltaAccuracyInsignificant, \
+        Afraz2015OptogeneticOverallDeltaAccuracy, \
         Afraz2015OptogeneticDeltaAccuracyCorrelated, Afraz2015OptogeneticSelectiveDeltaAccuracy, \
         Afraz2015MuscimolDeltaAccuracySignificant, \
         Afraz2015MuscimolDeltaAccuracyFace, Afraz2015MuscimolDeltaAccuracyNonFace
-    pool['dicarlo.Afraz2015.optogenetics-accuracy_significant'] = LazyLoad(
-        Afraz2015OptogeneticOverallDeltaAccuracySignificant)
+    pool['dicarlo.Afraz2015.optogenetics-contra_accuracy_significant'] = LazyLoad(
+        Afraz2015OptogeneticContraDeltaAccuracySignificant)
+    pool['dicarlo.Afraz2015.optogenetics-ipsi_accuracy_insignificant'] = LazyLoad(
+        Afraz2015OptogeneticIpsiDeltaAccuracyInsignificant)
     pool['dicarlo.Afraz2015.optogenetics-accuracy'] = LazyLoad(
         Afraz2015OptogeneticOverallDeltaAccuracy)
     pool['dicarlo.Afraz2015.optogenetics-delta_accuracy_correlated'] = LazyLoad(
@@ -270,14 +276,18 @@ def _experimental_benchmark_pool():
     pool['dicarlo.Afraz2015.muscimol-delta_accuracy_significant'] = LazyLoad(Afraz2015MuscimolDeltaAccuracySignificant)
     pool['dicarlo.Afraz2015.muscimol-delta_accuracy_face'] = LazyLoad(Afraz2015MuscimolDeltaAccuracyFace)
     pool['dicarlo.Afraz2015.muscimol-delta_accuracy_nonface'] = LazyLoad(Afraz2015MuscimolDeltaAccuracyNonFace)
+    ## Moeller2017
+    from brainscore.benchmarks.moeller2017 import Moeller2017Experiment1
+    pool['tsao.Moeller2017.experiment1'] = LazyLoad(Moeller2017Experiment1)
     ## Rajalingham2019
     from brainscore.benchmarks.rajalingham2019 import \
-        Rajalingham2019DeficitsSignificant, Rajalingham2019SpatialDeficitsSignificant, \
+        Rajalingham2019GlobalDeficitsSignificant, Rajalingham2019SpatialCorrelationSignificant, \
         Rajalingham2019DeficitPredictionTask, Rajalingham2019DeficitPredictionObject, \
-        Rajalingham2019SummaryBehavioralEffects
-    pool['dicarlo.Rajalingham2019-deficits_significant'] = LazyLoad(Rajalingham2019DeficitsSignificant)
-    pool['dicarlo.Rajalingham2019-summary_behavioral_effects'] = LazyLoad(Rajalingham2019SummaryBehavioralEffects)
-    pool['dicarlo.Rajalingham2019-spatial_deficits_significant'] = LazyLoad(Rajalingham2019SpatialDeficitsSignificant)
+        Rajalingham2019LateralDeficitDifference
+    pool['dicarlo.Rajalingham2019-global_deficits_significant'] = LazyLoad(Rajalingham2019GlobalDeficitsSignificant)
+    pool['dicarlo.Rajalingham2019-lateral_deficit_difference'] = LazyLoad(Rajalingham2019LateralDeficitDifference)
+    pool['dicarlo.Rajalingham2019-spatial_correlation_significant'] = LazyLoad(
+        Rajalingham2019SpatialCorrelationSignificant)
     pool['dicarlo.Rajalingham2019-deficit_prediction_task'] = LazyLoad(Rajalingham2019DeficitPredictionTask)
     pool['dicarlo.Rajalingham2019-deficit_prediction_object'] = LazyLoad(Rajalingham2019DeficitPredictionObject)
 
