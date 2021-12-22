@@ -254,7 +254,8 @@ class _Moeller2017(BenchmarkBase):
             # features_min = np.expand_dims(features.min(axis=1), 1)
             # features_max = np.expand_dims(features.max(axis=1), 1)
             # features_norm = (features - features_min) / (features_max - features_min)
-            features_norm = (features - features.min()) / (features.max() - features.min())
+            # features_norm = (features - features.min()) / (features.max() - features.min())
+            features_norm = features  # no normalization
 
             features0 = features_norm[:, features_norm.shape[1] // 2:]
             features1 = features_norm[:, :features_norm.shape[1] // 2]
@@ -265,7 +266,6 @@ class _Moeller2017(BenchmarkBase):
             # distance = (features - distance_min) / (distance_max - distance_min)
             # distance = (distance - distance.min()) / (distance.max() - distance.min())
             # distance = np.power(distance, 4)
-
 
             summed_distance = np.abs(distance).sum(1)
             return summed_distance
