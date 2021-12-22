@@ -160,7 +160,8 @@ def Afraz2015OptogeneticContraDeltaAccuracySignificant():
     metric = SignificantPerformanceChange(condition_name='laser_on', condition_value1=False, condition_value2=True)
 
     def filter_contra_metric(source_assembly, target_assembly):
-        source_assembly = source_assembly.sel(hemisphere='left')  # FIXME
+        source_assembly = source_assembly[{'presentation': [hemisphere in ['left', np.nan]   # FIXME visual field
+                                                            for hemisphere in source_assembly['hemisphere'].values]}]
         target_assembly = target_assembly.sel(visual_field='contra')
         return metric(source_assembly, target_assembly)
 
@@ -173,7 +174,8 @@ def Afraz2015OptogeneticIpsiDeltaAccuracyInsignificant():
     metric = NoSignificantPerformanceChange(condition_name='laser_on', condition_value1=False, condition_value2=True)
 
     def filter_ipsi_metric(source_assembly, target_assembly):
-        source_assembly = source_assembly.sel(hemisphere='right')  # FIXME
+        source_assembly = source_assembly[{'presentation': [hemisphere in ['right', np.nan]  # FIXME visual field
+                                                            for hemisphere in source_assembly['hemisphere'].values]}]
         target_assembly = target_assembly.sel(visual_field='ipsi')
         return metric(source_assembly, target_assembly)
 
