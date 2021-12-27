@@ -160,7 +160,7 @@ def Afraz2015OptogeneticContraDeltaAccuracySignificant():
     metric = SignificantPerformanceChange(condition_name='laser_on', condition_value1=False, condition_value2=True)
 
     def filter_contra_metric(source_assembly, target_assembly):
-        source_assembly = source_assembly[{'presentation': [hemisphere in ['left', np.nan]   # FIXME visual field
+        source_assembly = source_assembly[{'presentation': [hemisphere in ['left', np.nan]  # FIXME visual field
                                                             for hemisphere in source_assembly['hemisphere'].values]}]
         target_assembly = target_assembly.sel(visual_field='contra')
         return metric(source_assembly, target_assembly)
@@ -247,10 +247,9 @@ class _Afraz2015OptogeneticOverallAccuracy(_Afraz2015Optogenetics):
         unperturbed_accuracy = per_image_accuracy(unperturbed_behavior)
 
         site_accuracies = []
-        for site_iteration in perturbed_behaviors['site_iteration'].values:
+        for site in perturbed_behaviors['site'].values:
             # index instead of `.sel` to preserve all site coords
-            behavior = perturbed_behaviors[{'site': [site == site_iteration for site
-                                                     in perturbed_behaviors['site_iteration'].values]}]
+            behavior = perturbed_behaviors[{'site': [s == site for s in perturbed_behaviors['site'].values]}]
             site_coords = {coord: (dims, values) for coord, dims, values in walk_coords(behavior['site'])}
             behavior = behavior.squeeze('site', drop=True)
 
@@ -444,10 +443,9 @@ def characterize_delta_accuracies(unperturbed_behavior, perturbed_behaviors):
     unperturbed_accuracy = per_image_accuracy(unperturbed_behavior).mean('presentation')
 
     accuracy_deltas = []
-    for site_iteration in perturbed_behaviors['site_iteration'].values:
-        # index instead of `.sel` to preserve all site coords
-        behavior = perturbed_behaviors[{'site': [site == site_iteration for site
-                                                 in perturbed_behaviors['site_iteration'].values]}]
+    for site in perturbed_behaviors['site'].values:
+        # index instead of `.sel` to preserve site coords
+        behavior = perturbed_behaviors[{'site': [s == site for s in perturbed_behaviors['site'].values]}]
         site_coords = {coord: (dims, values) for coord, dims, values in walk_coords(behavior['site'])}
         behavior = behavior.squeeze('site', drop=True)
 

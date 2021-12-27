@@ -366,8 +366,8 @@ class _Moeller2017(BenchmarkBase):
         :param: selectivity_assembly:
             dims: 'neuroid_id'
                     coords:
-                        voxel_x: voxel coordinate
-                        voxel_y: voxel coordinate
+                        recording_x: voxel coordinate
+                        recording_y: voxel coordinate
                   'category_name'
         :param: radius (scalar): radius in mm of the circle in which to consider units
         :return: (int,int) location of highest purity
@@ -380,7 +380,7 @@ class _Moeller2017(BenchmarkBase):
             passing_indices = np.where(np.sqrt(np.square(x - center_x) + np.square(y - center_y)) < radius)[0]
             return 100. * np.sum(selectivity_assembly.values[passing_indices]) / passing_indices.shape[0]
 
-        x, y = selectivity_assembly.voxel_x.values, selectivity_assembly.voxel_y.values
+        x, y = selectivity_assembly.recording_x.values, selectivity_assembly.recording_y.values
         purity = np.array(list(map(get_purity, x, y)))
         highest_purity_idx = np.argmax(purity)
 
@@ -414,9 +414,9 @@ class _Moeller2017(BenchmarkBase):
         selectivity_array = DataAssembly(
             data=selectivities,
             dims=['voxel_id'],
-            coords={'voxel_id': recordings.voxel_id.values,
-                    'voxel_x': ('voxel_id', recordings.voxel_x.values),
-                    'voxel_y': ('voxel_id', recordings.voxel_y.values)})
+            coords={'voxel_id': recordings['voxel_id'].values,
+                    'recording_x': ('voxel_id', recordings['recording_x'].values),
+                    'recording_y': ('voxel_id', recordings['recording_y'].values)})
         return selectivity_array
 
     def _sample_outside_face_patch(self, selectivity_assembly: DataAssembly, radius=2):
@@ -432,9 +432,10 @@ class _Moeller2017(BenchmarkBase):
         not_selective_voxels = selectivity_assembly[selectivity_assembly.values < DPRIME_THRESHOLD_SELECTIVITY]
         voxels = []
         for voxel in not_selective_voxels:
-            voxel_x, voxel_y = voxel.voxel_id.item()[1:]  # because iteration removes coords somehow
-            inside_radius = np.where(np.sqrt(np.square(not_selective_voxels.voxel_x.values - voxel_x) +
-                                             np.square(not_selective_voxels.voxel_y.values - voxel_y)) < radius)[0]
+            recording_x, recording_y = voxel.voxel_id.item()[1:]  # because iteration removes coords somehow
+            inside_radius = np.where(np.sqrt(
+                np.square(not_selective_voxels['recording_x'].values - recording_x) +
+                np.square(not_selective_voxels['recording_y'].values - recording_y)) < radius)[0]
             if np.all(not_selective_voxels[inside_radius].values < DPRIME_THRESHOLD_FACE_PATCH):
                 voxels.append(voxel)  # TODO safety if there is tissue where this does not hold
 

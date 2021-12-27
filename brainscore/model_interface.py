@@ -26,7 +26,7 @@ class BrainModel:
     the hemisphere to record in
     """
 
-    RecordingType = Enum('RecordingTarget', " ".join(['exact', 'fMRI']))
+    RecordingType = Enum('RecordingTarget', " ".join(['exact', 'fMRI', 'UtahArray']))
     """
     technique to record with
     """
