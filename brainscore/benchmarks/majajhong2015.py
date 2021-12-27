@@ -104,13 +104,12 @@ def load_assembly(average_repetitions, region, access='private'):
 
 
 class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
-
     def __init__(self):
-        '''
+        """
         This benchmark compares the distribution of pairwise response correlation as a function of distance between the
             MajajHong2015 assembly and a candidate BrainModel
         Plots of this can be found in Figure 2 of the corresponding publication (see BIBTEX)
-        '''
+        """
         super().__init__(identifier='dicarlo.MajajHong2015.IT-spatial_correlation',
                          ceiling_func=lambda: InterIndividualStatisticsCeiling(
                              SpatialCorrelationSimilarity(similarity_function=self.inv_ks_similarity, bin_size_mm=.1))(
@@ -120,7 +119,7 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
                          bibtex=BIBTEX)
 
         assembly = brainscore.get_assembly('dicarlo.MajajHong2015').sel(region='IT')
-        assembly = self.make_static(assembly)
+        assembly = self.squeeze_time(assembly)
         assembly = self.tissue_update(assembly)
 
         self._neuroid_reliability = InternalConsistency()(assembly.transpose('presentation', 'neuroid'))
@@ -135,16 +134,18 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
                                np.ptp(self._target_assembly.neuroid.tissue_y.data))
 
     def __call__(self, candidate: BrainModel):
-        '''
+        """
         This computes the statistics, i.e. the pairwise response correlation of candidate and target, respectively and
         computes a score based on the ks similarity of the two resulting distributions
         :param candidate: BrainModel
         :return: Score, i.e. average inverted ks similarity, for the pairwise response correlation compared to the MajajHong Assembly
-        '''
+        """
         candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
-                                  recording_type=BrainModel.RecordingType.exact)
+                                  recording_type=BrainModel.RecordingType.exact,
+                                  # "we implanted each monkey with three arrays in the left cerebral hemisphere"
+                                  hemisphere=BrainModel.Hemisphere.left)
         candidate_assembly = candidate.look_at(self._stimulus_set)
-        candidate_assembly = self.make_static(candidate_assembly)
+        candidate_assembly = self.squeeze_time(candidate_assembly)
         candidate_statistic = self.sample_global_tissue_statistic(candidate_assembly)
 
         self._target_statistic = self.compute_global_tissue_statistic_target()
@@ -156,12 +157,12 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
         return score
 
     def sample_global_tissue_statistic(self, candidate_assembly):
-        '''
+        """
         Simulates placement of multiple arrays in tissue and computes repsonse correlation as a function of distance on
         each of them
         :param candidate_assembly: NeuroidAssembly
-        :return: xr DataArray: values = correlations; coordinates: distances, source, array
-        '''
+        :return: xarray.DataArray: values = correlations; coordinates: distances, source, array
+        """
         candidate_statistic_list = []
         bootstrap_samples_per_array = int(self.bootstrap_samples / self.num_sample_arrs)
         for i, window in enumerate(self.sample_array_locations(candidate_assembly.neuroid)):
@@ -175,9 +176,9 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
         return candidate_statistic
 
     def compute_global_tissue_statistic_target(self):
-        '''
+        """
         :return: xr DataArray: values = correlations; coordinates: distances, source, array
-        '''
+        """
         target_statistic_list = []
         for animal in sorted(list(set(self._target_assembly.neuroid.animal.data))):
             for arr in sorted(list(set(self._target_assembly.neuroid.arr.data))):
@@ -196,12 +197,12 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
         return target_statistic
 
     def sample_array_locations(self, neuroid, seed=0):
-        '''
+        """
         Generator: Sample Utah array-like portions from artificial model tissue and generate masks
         :param neuroid: NeuroidAssembly.neuroid, has to contain tissue_x, tissue_y coords
         :param seed: random seed
         :return: list of masks in neuroid dimension of assembly, usage: assembly[mask] -> neuroids within one array
-        '''
+        """
         bound_max_x, bound_max_y = np.max([neuroid.tissue_x.data, neuroid.tissue_y.data], axis=1) - self._array_size_mm
         rng = np.random.default_rng(seed=seed)
 
@@ -220,7 +221,7 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
 
     @classmethod
     def sample_response_corr_vs_dist(cls, assembly, num_samples, neuroid_reliability=None, seed=0):
-        '''
+        """
         1. Samples random pairs from the assembly
         2. Computes distances for all pairs
         3. Computes the response correlation between items of each pair
@@ -230,7 +231,7 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
         :param neuroid_reliability: if not None: expecting Score object containing reliability estimates of all neuroids
         :param seed: random seed
         :return: [distance, pairwise_correlation_of_neuroids], pairwise correlations can be ceiled
-        '''
+        """
         rng = np.random.default_rng(seed=seed)
         neuroid_pairs = rng.integers(0, assembly.shape[0], (2, num_samples))
 
@@ -254,12 +255,12 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
 
     @staticmethod
     def to_xarray(correlations, distances, source='model', array=None):
-        '''
+        """
         :param values: list of data values
         :param distances: list of distance values, each distance value has to correspond to one data value
         :param source: name of monkey
         :param array: name of recording array
-        '''
+        """
         xarray_statistic = DataArray(
             data=correlations,
             dims=["meta"],
@@ -282,23 +283,23 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
 
     @staticmethod
     def pairwise_distances(assembly):
-        '''
+        """
         Convenience function creating a simple lookup table for pairwise distances
         :param assembly: NeuroidAssembly
         :return: square matrix where each entry is the distance between the neuroids at the corresponding indices
-        '''
+        """
         locations = np.stack([assembly.neuroid.tissue_x.data, assembly.neuroid.tissue_y.data]).T
 
         return squareform(pdist(locations, metric='euclidean'))
 
     @staticmethod
     def create_pairwise_neuroid_reliability_mat(neuroid_reliability):
-        '''
+        """
         Convenience function creating a simple lookup table for combined reliabilities of neuroid pairs
         :param neuroid_reliability: expects Score object where neuroid_reliability.raw holds [cross validation subset,
             reliability per neuroid]
         :return: square matrix where each entry_ij = sqrt(reliability_i * reliability_j)
-        '''
+        """
         reliability_per_neuroid = np.mean(neuroid_reliability.raw.data, axis=0)
         c_mat = np.zeros((reliability_per_neuroid.size, reliability_per_neuroid.size))
         for i, ci in enumerate(reliability_per_neuroid):
@@ -309,10 +310,10 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
 
     @staticmethod
     def tissue_update(assembly):
-        '''
+        """
         Temporary functions: Obsolete when all saved assemblies updated such that x and y coordinates of each array electrode
         are stored in assembly.neuroid.tissue_{x,y}
-        '''
+        """
         if not hasattr(assembly, 'tissue_x'):
             assembly['tissue_x'] = assembly['x']
             assembly['tissue_y'] = assembly['y']
@@ -320,7 +321,7 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
         return assembly
 
     @staticmethod
-    def make_static(assembly):
+    def squeeze_time(assembly):
         if 'time_bin' in assembly.dims:
             assembly = assembly.squeeze('time_bin')
         if hasattr(assembly, "time_step"):
@@ -330,8 +331,8 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
 
     @staticmethod
     def inv_ks_similarity(p, q):
-        '''
+        """
         Inverted ks similarity -> resulting in a score within [0,1], 1 being a perfect match
-        '''
+        """
         import scipy.stats
         return 1 - scipy.stats.ks_2samp(p, q)[0]
