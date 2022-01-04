@@ -94,6 +94,17 @@ def collect_summary_behavioral_effects():
     return assembly
 
 
+def collect_distance_deficit_similarity():
+    # Data Rajalingham et al. 2019 Figure 6A screen grabbed
+    data = pd.read_csv(Path(__file__).parent / 'fig6A.csv')
+
+    assembly = DataAssembly(data['inactivation_deficit_similarity'], coords={
+        'anatomical_distance_mm': ('anatomical_distance', data['anatomical_distance_mm']),
+        'inactivation_deficit_similarity_std': ('anatomical_distance', data['inactivation_deficit_similarity_std']),
+    }, dims='anatomical_distance')
+    return assembly
+
+
 def collect_stimulus_set(contra_visualfield=False):
     # load stimulus_set subsampled from hvm
     stimulus_set_meta = scipy.io.loadmat('/braintree/home/msch/rr_share_topo/topoDCNN/dat/metaparams.mat')
