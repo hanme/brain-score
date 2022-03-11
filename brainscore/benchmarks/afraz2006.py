@@ -97,7 +97,7 @@ class _Afraz2006(BenchmarkBase):
         # while the monkey performed the object categorization task.
         # Selectivity for faces was defined as having a d' value > 1."
 
-        # Recordings were made on an evenly spaced grid, with 1-mm intervals between penetrations over a wide region of
+        # "Recordings were made on an evenly spaced grid, with 1-mm intervals between penetrations over a wide region of
         # the lower bank of STS and TEa cortices (left hemisphere 14 to 21mm anterior to interauricular line in FR,
         # and right hemisphere 14 to 20mm anterior to interauricular line in KH). The recording positions were
         # determined stereotaxically by referring to magnetic resonance images acquired before the surgery.
@@ -106,7 +106,7 @@ class _Afraz2006(BenchmarkBase):
         # electrode was advanced. The recorded positions were separated by at least 150mm (mean, 296mm). After
         # determining the neighbourhood selectivity, the electrode tip was positioned in the middle of the recorded
         # area and remained there through the rest of the experiment. The neural selectivity in this site was verified
-        # before starting the categorization task.
+        # before starting the categorization task."
 
         # We here randomly sub-select the recordings to match the number of stimulation sites in the experiment, based
         # on the assumption that we can compare trend effects even with a random sample.
@@ -114,7 +114,7 @@ class _Afraz2006(BenchmarkBase):
         subselected_neuroid_ids = RandomState(1).choice(recordings['neuroid_id'].values, size=subselect, replace=False)
         recordings = recordings[{'neuroid': [neuroid_id in subselected_neuroid_ids
                                              for neuroid_id in recordings['neuroid_id'].values]}]
-        stimulation_locations = np.stack((recordings['tissue_x'], recordings['tissue_y'])).T.tolist()
+        stimulation_locations = np.stack((recordings['recording_x'], recordings['recording_y'])).T.tolist()
         candidate_behaviors = []
         for site, location in enumerate(tqdm(stimulation_locations, desc='stimulation locations')):
             candidate.perturb(perturbation=None, target='IT')  # reset
@@ -151,16 +151,19 @@ class _Afraz2006(BenchmarkBase):
         nonstimulated_signal_midpoint = self.logistic_midpoint(nonstimulated_logistic)
 
         psychometric_shifts = []
-        for site_iteration in behaviors['site_iteration'].values:
+        for site in behaviors['site'].values:
             # index instead of `.sel` to preserve all site coords
-            behavior = behaviors[{'site': [site == site_iteration for site in behaviors['site_iteration'].values]}]
+            behavior = behaviors[{'site': [s == site for s in behaviors['site'].values]}]
             site_coords = {coord: (dims, values) for coord, dims, values in walk_coords(behavior['site'])}
             behavior = behavior.squeeze('site')
             psychometric_curve = self.grouped_face_responses(behavior)
-            site_logistic = self.fit_logistic(x=psychometric_curve['label_signal_level'],
-                                              y=psychometric_curve.values)
-            site_midpoint = self.logistic_midpoint(site_logistic)
-            psychometric_shift = nonstimulated_signal_midpoint - site_midpoint
+            try:
+                site_logistic = self.fit_logistic(x=psychometric_curve['label_signal_level'],
+                                                  y=psychometric_curve.values)
+                site_midpoint = self.logistic_midpoint(site_logistic)
+                psychometric_shift = nonstimulated_signal_midpoint - site_midpoint
+            except (AssertionError, RuntimeError):  # TODO unable to fit function / find midpoint
+                psychometric_shift = 0
             psychometric_shift = DataAssembly([psychometric_shift], coords=site_coords, dims=['site'])
             psychometric_shifts.append(psychometric_shift)
         psychometric_shifts = merge_data_arrays(psychometric_shifts)
