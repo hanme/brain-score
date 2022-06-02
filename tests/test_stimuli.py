@@ -27,6 +27,7 @@ import brainio
         'dietterich.Hendrycks2019.blur',
         'dietterich.Hendrycks2019.weather',
         'dietterich.Hendrycks2019.digital',
+        'katz.BarbuMayo2019',
         'fei-fei.Deng2009',
         'aru.Cichy2019',
         'dicarlo.BashivanKar2019.naturalistic',
@@ -52,7 +53,7 @@ def test_klab_Zhang2018search():
     # present at 6 different locations in a specified search image.
     # Therefore, a total of 300 * 2 + 6 images are there in the stimulus set.
     assert len(stimulus_set) == 606
-    assert len(set(stimulus_set['image_id'])) == 606
+    assert len(set(stimulus_set['stimulus_id'])) == 606
 
 
 @pytest.mark.private_access
@@ -78,6 +79,12 @@ class TestDietterichHendrycks2019:
         assert len(stimulus_set) == 4 * 5 * 50000
         assert len(set(stimulus_set['synset'])) == 1000
 
+
+@pytest.mark.private_access
+def test_Katz_BarbuMayo2019():
+    stimulus_set = brainio.get_stimulus_set('katz.BarbuMayo2019')
+    assert len(stimulus_set) == 17261
+    assert len(set(stimulus_set['synset'])) == 104
 
 @pytest.mark.private_access
 def test_feifei_Deng2009():

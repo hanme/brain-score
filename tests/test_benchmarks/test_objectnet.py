@@ -1,14 +1,14 @@
 import numpy as np
-from pytest import approx
+import pytest
 
 from brainio.assemblies import BehavioralAssembly
-from brainscore.benchmarks.imagenet import Imagenet2012
+from brainscore.benchmarks.objectnet import Objectnet
 from brainscore.model_interface import BrainModel
 
-
-class TestImagenet2012:
+@pytest.mark.private_access
+class TestObjectnet:
     def test_groundtruth(self):
-        benchmark = Imagenet2012()
+        benchmark = Objectnet()
         source = benchmark._stimulus_set
 
         class GroundTruth(BrainModel):
@@ -29,4 +29,4 @@ class TestImagenet2012:
 
         candidate = GroundTruth()
         score = benchmark(candidate)
-        assert score.sel(aggregation='center') == approx(1)
+        assert score.sel(aggregation='center') == pytest.approx(1)

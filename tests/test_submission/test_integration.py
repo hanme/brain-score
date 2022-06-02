@@ -1,15 +1,15 @@
 import csv
 import logging
-import math
 import os
 from datetime import datetime
 
 import pytest
+from pytest import approx
 
 from brainscore.submission.database import connect_db
 from brainscore.submission.evaluation import run_evaluation
 from brainscore.submission.models import Score, Model, Submission
-from tests.test_submission.test_db import clear_schema, init_user
+from tests.test_submission.test_db import clear_schema, init_user, init_benchmark_parents
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +36,34 @@ class TestIntegration:
     def setup_method(self):
         logger.info('Initialize database')
         init_user()
+        init_benchmark_parents()
 
     def teardown_method(self):
         logger.info('Clean database')
         clear_schema()
 
-    def compare(self, a, b):
-        return abs(a - b) <= 0.0001
+    def test_competition_field(self, tmpdir):
+        working_dir = str(tmpdir.mkdir('sub'))
+        config_dir = str(os.path.join(os.path.dirname(__file__), 'configs/'))
+        run_evaluation(config_dir, working_dir, 33, TestIntegration.database, models=['alexnet'],
+                       benchmarks=['dicarlo.MajajHong2015.IT-pls'])
+        model = Model.get()
+        assert model.competition == "cosyne2022"
+
+    def test_competition_field_none(self, tmpdir):
+        working_dir = str(tmpdir.mkdir('sub'))
+        config_dir = str(os.path.join(os.path.dirname(__file__), 'configs/'))
+        submission = Submission.create(id=33, submitter=1, timestamp=datetime.now(),
+                                       model_type='BaseModel', status='running')
+        model = Model.create(name='alexnet', owner=submission.submitter, public=False,
+                             submission=submission)
+        with open(f'{config_dir}submission_40.json', 'w') as rerun:
+            rerun.write(f"""{{
+                "model_ids": [{model.id}], "user_id": 1, "competition": null}}""")
+        run_evaluation(config_dir, working_dir, 40, TestIntegration.database,
+                       benchmarks=['dicarlo.Rajalingham2018-i2n'])
+        model = Model.get()
+        assert model.competition is None
 
     def test_evaluation(self, tmpdir):
         working_dir = str(tmpdir.mkdir('sub'))
@@ -55,9 +76,9 @@ class TestIntegration:
             result_row = next(csv_reader)
             assert result_row[0] == 'alexnet'
             assert result_row[1] == 'dicarlo.MajajHong2015.IT-pls'
-            assert self.compare(float(result_row[2]), 0.5857491098187586)
-            assert self.compare(float(result_row[3]), 0.5079816726934638)
-            assert self.compare(float(result_row[4]), 0.003155449372125895)
+            assert float(result_row[2]) == approx(0.5857491098187586, abs=0.0001)
+            assert float(result_row[3]) == approx(0.5079816726934638, abs=0.0001)
+            assert float(result_row[4]) == approx(0.003155449372125895, abs=0.0001)
         scores = Score.select()
         assert len(scores) == 1
         # successful score comment should inform about which layers were used for which regions
@@ -81,9 +102,9 @@ class TestIntegration:
             result_row = next(csv_reader)
             assert result_row[0] == 'alexnet'
             assert result_row[1] == 'dicarlo.Rajalingham2018-i2n'
-            assert self.compare(float(result_row[2]), 0.25771746331458695)
-            assert self.compare(float(result_row[3]), 0.3701702418190641)
-            assert self.compare(float(result_row[4]), 0.011129032024657565)
+            assert float(result_row[2]) == approx(0.25771746331458695, abs=0.0001)
+            assert float(result_row[3]) == approx(0.3701702418190641, abs=0.0001)
+            assert float(result_row[4]) == approx(0.011129032024657565, abs=0.0001)
 
     def test_failure_evaluation(self, tmpdir):
         working_dir = str(tmpdir.mkdir('sub'))

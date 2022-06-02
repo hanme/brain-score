@@ -70,7 +70,8 @@ def run_evaluation(config_dir, work_dir, jenkins_id, db_secret, models=None,
                 for model_name in test_models:
                     model_entry, created = Model.get_or_create(name=model_name, owner=submission_entry.submitter,
                                                                defaults={'public': submission_config.public,
-                                                                         'submission': submission_entry})
+                                                                         'submission': submission_entry,
+                                                                         'competition': submission_config.competition_submission})
                     if hasattr(module, 'get_bibtex') and created:  # model entry was just created and we can add bibtex
                         bibtex_string = module.get_bibtex(model_name)
                         reference = get_reference(bibtex_string)
@@ -216,8 +217,8 @@ def get_benchmark_instance(benchmark_name):
             benchmark_type.parent = parent
             benchmark_type.save()
         except DoesNotExist:
-            logger.exception(f'Could not connect benchmark {benchmark_name} to parent {benchmark.parent} '
-                             f'since parent does not exist')
+            logger.warning(f'Could not connect benchmark {benchmark_name} to parent {benchmark.parent} '
+                           f'since parent does not exist')
         if hasattr(benchmark, 'bibtex') and benchmark.bibtex is not None:
             bibtex_string = benchmark.bibtex
             ref = get_reference(bibtex_string)
