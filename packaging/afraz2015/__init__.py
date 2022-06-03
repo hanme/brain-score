@@ -11,7 +11,7 @@ from brainio.stimuli import StimulusSet
 
 def collect_stimuli():
     stimulus_set = pd.read_pickle(Path(__file__).parent / 'stimuli/metadata_pd.pkl')
-    stimulus_set = stimulus_set.rename(columns={'id': 'image_id', 'obj': 'category', 'xloc': 'location'})
+    stimulus_set = stimulus_set.rename(columns={'id': 'stimulus_id', 'obj': 'category', 'xloc': 'location'})
     stimulus_set['category'] = stimulus_set['category'].replace(
         {'mal': 'male', 'fem': 'female', 'fac': 'face', 'obj': 'object'})
     stimulus_set['location'] = stimulus_set['location'].replace(
@@ -21,7 +21,7 @@ def collect_stimuli():
     stimulus_set.image_paths = {row.image_id: image_directory / f"{row.image_id}.png"
                                 for _, row in stimulus_set.iterrows()}
     stimulus_set.identifier = 'Afraz2015'
-    assert all(Path(stimulus_set.get_image(image_id)).is_file() for image_id in stimulus_set['image_id'])
+    assert all(Path(stimulus_set.get_stimulus(stimulus_id)).is_file() for stimulus_id in stimulus_set['stimulus_id'])
     assert set(stimulus_set['category']) == {'male', 'female', 'object', 'face'}
     assert set(stimulus_set['location']) == {'right', 'left'}
     return stimulus_set

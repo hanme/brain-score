@@ -131,14 +131,14 @@ def make_noisy(stimuli: StimulusSet, signal_levels, faces_per_level: int, nonfac
     for signal_level in tqdm(signal_levels, desc='noise'):
         noise_level = 1 - signal_level / 100
         # sample a number of face and non-face images per noise level
-        face_ids = random_state_ids.choice(stimuli['image_id'][stimuli['image_label'] == FACE_LABEL],
+        face_ids = random_state_ids.choice(stimuli['stimulus_id'][stimuli['image_label'] == FACE_LABEL],
                                            faces_per_level, replace=False)
-        nonface_ids = random_state_ids.choice(stimuli['image_id'][stimuli['image_label'] == NONFACE_LABEL],
+        nonface_ids = random_state_ids.choice(stimuli['stimulus_id'][stimuli['image_label'] == NONFACE_LABEL],
                                               nonfaces_per_level, replace=False)
 
-        for image_id in np.concatenate((face_ids, nonface_ids)):  # perturb all chosen images
-            source_path = stimuli.get_image(image_id)
-            noisy_image_id = image_id + f'-signal{signal_level}'
+        for stimulus_id in np.concatenate((face_ids, nonface_ids)):  # perturb all chosen images
+            source_path = stimuli.get_stimulus(stimulus_id)
+            noisy_image_id = stimulus_id + f'-signal{signal_level}'
             target_path = target_directory / (source_path.stem + f'-signal{signal_level}' + source_path.suffix)
             if skip_if_exist:
                 assert target_path.is_file()
@@ -149,11 +149,11 @@ def make_noisy(stimuli: StimulusSet, signal_levels, faces_per_level: int, nonfac
                                                random_state=random_state_noise)
                 noisy_image = Image.fromarray(noisy_image)
                 noisy_image.save(target_path)
-            image_meta = stimuli[stimuli['image_id'] == image_id]
+            image_meta = stimuli[stimuli['stimulus_id'] == stimulus_id]
             assert len(image_meta) == 1
             stimulus_row = {**image_meta.iloc[0].to_dict(),
                             **{'signal_level': signal_level, 'noise_level': noise_level}}
-            stimulus_row['image_id'] = noisy_image_id
+            stimulus_row['stimulus_id'] = noisy_image_id
             noisy_stimuli.append(stimulus_row)
             noisy_paths.append(target_path)
 
@@ -161,7 +161,7 @@ def make_noisy(stimuli: StimulusSet, signal_levels, faces_per_level: int, nonfac
     noisy_stimuli = StimulusSet(noisy_stimuli)
     signal_direction = [-1 if label == NONFACE_LABEL else +1 for label in noisy_stimuli['image_label']]
     noisy_stimuli['label_signal_level'] = signal_direction * noisy_stimuli['signal_level']
-    noisy_stimuli.image_paths = dict(zip(noisy_stimuli['image_id'], noisy_paths))
+    noisy_stimuli.image_paths = dict(zip(noisy_stimuli['stimulus_id'], noisy_paths))
     noisy_stimuli.identifier = identifier
     return noisy_stimuli
 
@@ -213,8 +213,8 @@ def sample_nonfaces(num_images):
 
 def make_grayscale(stimulus_set: StimulusSet) -> StimulusSet:
     stimulus_set_grayscale = stimulus_set.copy()
-    for image_id in tqdm(stimulus_set_grayscale['image_id'], desc='make grayscale'):
-        path = stimulus_set_grayscale.get_image(image_id)
+    for stimulus_id in tqdm(stimulus_set_grayscale['stimulus_id'], desc='make grayscale'):
+        path = stimulus_set_grayscale.get_stimulus(stimulus_id)
         image = Image.open(path)
         directory_grayscale = Path(str(path.parent) + '-grayscale')
         directory_grayscale.mkdir(exist_ok=True)
@@ -222,15 +222,15 @@ def make_grayscale(stimulus_set: StimulusSet) -> StimulusSet:
         if not path_grayscale.is_file():  # only convert and save if needed
             image_grayscale = image.convert('L')
             image_grayscale.save(path_grayscale)
-        stimulus_set_grayscale.image_paths[image_id] = path_grayscale
+        stimulus_set_grayscale.image_paths[stimulus_id] = path_grayscale
     stimulus_set_grayscale.identifier += '-grayscale'
     return stimulus_set_grayscale
 
 
 def downsample(stimulus_set: StimulusSet, downsample_size=64) -> StimulusSet:
     stimulus_set_downsample = stimulus_set.copy()
-    for image_id in tqdm(stimulus_set_downsample['image_id'], desc='downsample'):
-        path = stimulus_set_downsample.get_image(image_id)
+    for stimulus_id in tqdm(stimulus_set_downsample['stimulus_id'], desc='downsample'):
+        path = stimulus_set_downsample.get_stimulus(stimulus_id)
         image = Image.open(path)
         directory_downsample = Path(str(path.parent) + '-downsample')
         directory_downsample.mkdir(exist_ok=True)
@@ -238,7 +238,7 @@ def downsample(stimulus_set: StimulusSet, downsample_size=64) -> StimulusSet:
         if not path_downsample.is_file():  # only convert and save if needed
             image_grayscale = image.resize((downsample_size, downsample_size))
             image_grayscale.save(path_downsample)
-        stimulus_set_downsample.image_paths[image_id] = path_downsample
+        stimulus_set_downsample.image_paths[stimulus_id] = path_downsample
     stimulus_set_downsample.identifier += '-downsample'
     return stimulus_set_downsample
 

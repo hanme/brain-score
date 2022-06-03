@@ -81,22 +81,23 @@ def convert_stimuli(stimulus_set_existing, stimulus_set_name_new, image_dir_new)
 
     image_converter = ApplyCosineAperture(target_dir=image_dir_new)
     converted_image_paths = {}
-    converted_image_ids = {}
-    for image_id in tqdm(stimulus_set_existing['image_id'], total=len(stimulus_set_existing), desc='apply cosine aperture'):
-        converted_image_path = image_converter.convert_image(image_path=stimulus_set_existing.get_image(image_id))
-        converted_image_id = kf(converted_image_path).sha1
-        converted_image_ids[image_id] = converted_image_id
-        converted_image_paths[converted_image_id] = converted_image_path
-        _logger.debug(f"{image_id} -> {converted_image_id}:  {converted_image_path}")
+    converted_stimulus_ids = {}
+    for stimulus_id in tqdm(stimulus_set_existing['stimulus_id'],
+                            total=len(stimulus_set_existing), desc='apply cosine aperture'):
+        converted_image_path = image_converter.convert_image(image_path=stimulus_set_existing.get_stimulus(stimulus_id))
+        converted_stimulus_id = kf(converted_image_path).sha1
+        converted_stimulus_ids[stimulus_id] = converted_stimulus_id
+        converted_image_paths[converted_stimulus_id] = converted_image_path
+        _logger.debug(f"{stimulus_id} -> {converted_stimulus_id}:  {converted_image_path}")
 
     converted_stimuli = StimulusSet(stimulus_set_existing.copy(deep=True))
-    converted_stimuli["image_id_without_aperture"] = converted_stimuli["image_id"]
-    converted_stimuli["image_id"] = converted_stimuli["image_id"].map(converted_image_ids)
-    converted_stimuli["image_file_sha1"] = converted_stimuli["image_id"]
+    converted_stimuli["image_id_without_aperture"] = converted_stimuli["stimulus_id"]
+    converted_stimuli["stimulus_id"] = converted_stimuli["stimulus_id"].map(converted_stimulus_ids)
+    converted_stimuli["image_file_sha1"] = converted_stimuli["stimulus_id"]
 
-    converted_stimuli.image_paths = converted_image_paths
+    converted_stimuli.stimulus_paths = converted_image_paths
     converted_stimuli.name = stimulus_set_name_new
-    converted_stimuli.id_mapping = converted_image_ids
+    converted_stimuli.id_mapping = converted_stimulus_ids
 
     return converted_stimuli
 
