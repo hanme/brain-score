@@ -62,10 +62,10 @@ def train_test_stimuli(size_image_bank=600,
     face_paths, nonface_paths = collect_stimuli(num_images=size_image_bank)
     face_paths, nonface_paths = list(sorted(face_paths)), list(sorted(nonface_paths))
     # convert to StimulusSet
-    image_ids = [path.stem for path in face_paths + nonface_paths]
-    image_bank = StimulusSet({'image_id': image_ids,
+    stimulus_ids = [path.stem for path in face_paths + nonface_paths]
+    image_bank = StimulusSet({'image_id': stimulus_ids,
                               'image_label': [FACE_LABEL] * len(face_paths) + [NONFACE_LABEL] * len(nonface_paths)})
-    image_bank.image_paths = dict(zip(image_ids, face_paths + nonface_paths))
+    image_bank.stimulus_paths = dict(zip(stimulus_ids, face_paths + nonface_paths))
     image_bank.identifier = 'faces_nonfaces'
     # downsample
     logger.info("Downsampling")
@@ -161,7 +161,7 @@ def make_noisy(stimuli: StimulusSet, signal_levels, faces_per_level: int, nonfac
     noisy_stimuli = StimulusSet(noisy_stimuli)
     signal_direction = [-1 if label == NONFACE_LABEL else +1 for label in noisy_stimuli['image_label']]
     noisy_stimuli['label_signal_level'] = signal_direction * noisy_stimuli['signal_level']
-    noisy_stimuli.image_paths = dict(zip(noisy_stimuli['stimulus_id'], noisy_paths))
+    noisy_stimuli.stimulus_paths = dict(zip(noisy_stimuli['stimulus_id'], noisy_paths))
     noisy_stimuli.identifier = identifier
     return noisy_stimuli
 
@@ -222,7 +222,7 @@ def make_grayscale(stimulus_set: StimulusSet) -> StimulusSet:
         if not path_grayscale.is_file():  # only convert and save if needed
             image_grayscale = image.convert('L')
             image_grayscale.save(path_grayscale)
-        stimulus_set_grayscale.image_paths[stimulus_id] = path_grayscale
+        stimulus_set_grayscale.stimulus_paths[stimulus_id] = path_grayscale
     stimulus_set_grayscale.identifier += '-grayscale'
     return stimulus_set_grayscale
 
@@ -238,7 +238,7 @@ def downsample(stimulus_set: StimulusSet, downsample_size=64) -> StimulusSet:
         if not path_downsample.is_file():  # only convert and save if needed
             image_grayscale = image.resize((downsample_size, downsample_size))
             image_grayscale.save(path_downsample)
-        stimulus_set_downsample.image_paths[stimulus_id] = path_downsample
+        stimulus_set_downsample.stimulus_paths[stimulus_id] = path_downsample
     stimulus_set_downsample.identifier += '-downsample'
     return stimulus_set_downsample
 

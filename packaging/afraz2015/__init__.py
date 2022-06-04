@@ -18,8 +18,8 @@ def collect_stimuli():
         {'0': 'right', '1': 'left'})
     image_directory = Path(__file__).parent / 'stimuli/images'
     stimulus_set = StimulusSet(stimulus_set)
-    stimulus_set.image_paths = {row.image_id: image_directory / f"{row.image_id}.png"
-                                for _, row in stimulus_set.iterrows()}
+    stimulus_set.stimulus_paths = {row.stimulus_id: image_directory / f"{row.stimulus_id}.png"
+                                   for _, row in stimulus_set.iterrows()}
     stimulus_set.identifier = 'Afraz2015'
     assert all(Path(stimulus_set.get_stimulus(stimulus_id)).is_file() for stimulus_id in stimulus_set['stimulus_id'])
     assert set(stimulus_set['category']) == {'male', 'female', 'object', 'face'}

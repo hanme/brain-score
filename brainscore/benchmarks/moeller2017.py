@@ -128,7 +128,7 @@ class _Moeller2017(BenchmarkBase):
             values: IT activation vectors
             dims:   object_name : list of strings, category
             coords: object_ID   : list of strings, object identity
-                    image_ID    : list of strings, object + view angle identity
+                    stimulus_id    : list of strings, object + view angle identity
         :return: behaviors DataAssembly
             values: choice
             dims:   condition   : list of strings, ['same_id == 1, 'different_id'==0],
@@ -305,7 +305,7 @@ class _Moeller2017(BenchmarkBase):
         :return: array (samples x 2, number of neurons x 2), each line contains two recordings
                  ground truth, for each line in array, specifying if the two recordings belong to the same/different ID
         """
-        # TODO object and image_id disappear with subselection
+        # TODO object and stimulus_id disappear with subselection
         rng = np.random.default_rng(seed=self._seed)
         recording_size = category_pool.shape[0]
         random_indices = rng.integers(0, category_pool.shape[1], (samples, 2))
@@ -313,14 +313,14 @@ class _Moeller2017(BenchmarkBase):
         sampled_recordings = np.full((samples * 2, recording_size * 2), np.nan)
         for i, (random_idx_same, random_idx_different) in enumerate(
                 tqdm(random_indices, desc='decoder training recordings')):
-            # condition 'same_id': object_id same between recording one and two, image_id different between recording one and two
+            # condition 'same_id': object_id same between recording one and two, stimulus_id different between recording one and two
             image_one_same = category_pool[:, random_idx_same]
-            same_image_id, same_object_id = image_one_same.presentation.values.item()  # TODO weird xarray behavior, diappearing dimension after selection
+            same_stimulus_id, same_object_id = image_one_same.presentation.values.item()  # TODO weird xarray behavior, diappearing dimension after selection
             sampled_recordings[i, :recording_size] = image_one_same.values
             if self._stimulus_class in ['Faces', 'Objects']:  # not same image requirement only in Experiment 1&2
                 sampled_recordings[i, recording_size:] = rng.choice(category_pool.where(
                     (category_pool.object_id == same_object_id) &
-                    (category_pool.image_id != same_image_id), drop=True).T)
+                    (category_pool.stimulus_id != same_stimulus_id), drop=True).T)
             else:
                 sampled_recordings[i, recording_size:] = image_one_same.values
                 # <=> rng.choice(category_pool.where((category_pool.object_id == same_object_id), drop=True).T)
