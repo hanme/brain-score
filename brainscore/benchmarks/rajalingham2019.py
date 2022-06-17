@@ -64,7 +64,8 @@ MUSCIMOL_PARAMETERS = {
 
 
 class _Rajalingham2019(BenchmarkBase):
-    def __init__(self, identifier, metric, ceiling_func=None, num_sites_per_hemisphere=10):
+    def __init__(self, identifier, metric, ceiling_func=None,
+                 num_sites_per_hemisphere=10, num_experiment_bootstraps=10):
         self._target_assembly = collect_assembly()
         self._training_stimuli = brainscore.get_stimulus_set('dicarlo.hvm')
         self._training_stimuli['image_label'] = self._training_stimuli['object_name']
@@ -74,6 +75,7 @@ class _Rajalingham2019(BenchmarkBase):
         self._test_stimuli = self._target_assembly.stimulus_set
 
         self._num_sites_per_hemisphere = num_sites_per_hemisphere
+        self._num_experiment_bootstraps = num_experiment_bootstraps
         self._metric = metric
         self._logger = logging.getLogger(fullname(self))
         super(_Rajalingham2019, self).__init__(
@@ -98,30 +100,40 @@ class _Rajalingham2019(BenchmarkBase):
         unperturbed_behavior = self._perform_task_unperturbed(candidate)
 
         # silencing sessions
-        behaviors = [unperturbed_behavior]
-        # "We varied the location of microinjections to randomly sample the ventral surface of IT
-        # (from approximately + 8mm AP to approx + 20mm AP)."
-        # stay between [0, 10] since that is the extent of the tissue
+        bootstrap_scores = []
+        for bootstrap in range(self._num_experiment_bootstraps):
+            behaviors = [unperturbed_behavior]
+            # "We varied the location of microinjections to randomly sample the ventral surface of IT
+            # (from approximately + 8mm AP to approx + 20mm AP)."
+            # stay between [0, 10] since that is the extent of the tissue
 
-        random_state = RandomState(1)
-        injection_locations = random_state.uniform(low=0, high=10, size=(self._num_sites_per_hemisphere * 2, 2))
-        injection_hemispheres = (['left'] * self._num_sites_per_hemisphere) + \
-                                (['right'] * self._num_sites_per_hemisphere)
-        for site, (hemisphere, injection_location) in enumerate(zip(injection_hemispheres, injection_locations)):
-            perturbation_parameters = {**MUSCIMOL_PARAMETERS,
-                                       **{'location': injection_location, 'hemisphere': hemisphere}}
-            # TODO: we need to change the match-to-sample task paradigm here in order to account for lateralization.
-            #  In particular, they treat contra trials as those trials where
-            #  "images in which the center of the target object was contralateral to the injection hemisphere"
-            perturbed_behavior = self._perform_task_perturbed(candidate,
-                                                              perturbation_parameters=perturbation_parameters,
-                                                              site_number=site)
-            behaviors.append(perturbed_behavior)
+            random_state = RandomState(1)
+            injection_locations = random_state.uniform(low=0, high=10, size=(self._num_sites_per_hemisphere * 2, 2))
+            injection_hemispheres = (['left'] * self._num_sites_per_hemisphere) + \
+                                    (['right'] * self._num_sites_per_hemisphere)
+            for site, (hemisphere, injection_location) in enumerate(zip(injection_hemispheres, injection_locations)):
+                perturbation_parameters = {**MUSCIMOL_PARAMETERS,
+                                           **{'location': injection_location, 'hemisphere': hemisphere}}
+                # TODO: we need to change the match-to-sample task paradigm here in order to account for lateralization.
+                #  In particular, they treat contra trials as those trials where
+                #  "images in which the center of the target object was contralateral to the injection hemisphere"
+                perturbed_behavior = self._perform_task_perturbed(candidate,
+                                                                  perturbation_parameters=perturbation_parameters,
+                                                                  site_number=site)
+                behaviors.append(perturbed_behavior)
 
-        behaviors = merge_data_arrays(behaviors)
-        behaviors = self.align_task_names(behaviors)
+            behaviors = merge_data_arrays(behaviors)
+            behaviors = self.align_task_names(behaviors)
 
-        score = self._metric(behaviors, self._target_assembly)
+            score = self._metric(behaviors, self._target_assembly)
+
+            score = score.expand_dims('bootstrap')
+            score['bootstrap'] = [bootstrap]
+            bootstrap_scores.append(score)
+
+        # average score over bootstraps
+        bootstrap_scores = merge_data_arrays(bootstrap_scores)
+        score = bootstrap_scores.mean('bootstrap')
         return score
 
     def _perform_task_unperturbed(self, candidate: BrainModel):
