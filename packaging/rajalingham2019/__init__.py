@@ -111,7 +111,7 @@ def collect_stimulus_set(contra_visualfield=False):
     stimulus_set_ids = stimulus_set_meta['id']
     stimulus_set_ids = [i for i in stimulus_set_ids if len(set(i)) > 1]  # filter empty ids
     stimulus_set = brainscore.get_stimulus_set('dicarlo.hvm')
-    stimulus_set = stimulus_set[stimulus_set['image_id'].isin(stimulus_set_ids)]
+    stimulus_set = stimulus_set[stimulus_set['stimulus_id'].isin(stimulus_set_ids)]
     stimulus_set = stimulus_set[stimulus_set['object_name'].isin(EXPECTED_CATEGORIES)]
     stimulus_set['image_label'] = stimulus_set['truth'] = stimulus_set['object_name']  # 10 labels at this point
     stimulus_set.identifier = 'dicarlo.hvm_10'
