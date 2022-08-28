@@ -122,7 +122,8 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
         assembly = self.squeeze_time(assembly)
         assembly = self.tissue_update(assembly)
 
-        self._neuroid_reliability = InternalConsistency()(assembly.transpose('presentation', 'neuroid'))
+        consistency = InternalConsistency()
+        self._neuroid_reliability = LazyLoad(lambda: consistency(assembly.transpose('presentation', 'neuroid')))
         self._stimulus_set = assembly.stimulus_set
         self._target_assembly = average_repetition(assembly)
         self._metric = SpatialCorrelationSimilarity(similarity_function=self.inv_ks_similarity,
