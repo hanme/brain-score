@@ -156,6 +156,9 @@ class DeficitPredictionTask(DeficitPrediction):
 
 
 class DeficitPredictionObject(DeficitPrediction):
+    # the setup here is to hold out an entire object. For instance, if 'Bear' is in a task in test, then no task in
+    # train may include Bear. However, it can still include other objects from test, for instance test tasks could be
+    # Bear-Elephant and Bear-Chair, then train tasks could still include Elephant-Dog and Plane-Chair
     def cross_validate(self, assembly1_differences, assembly2_differences):
         sites = assembly2_differences['site_iteration'].values
         objects = np.concatenate((assembly2_differences['task_left'], assembly2_differences['task_right']))
@@ -166,15 +169,17 @@ class DeficitPredictionObject(DeficitPrediction):
                 itertools.product(sites, objects), desc='site+object kfold', total=len(sites) * len(objects)):
 
             # test assembly are tasks with 1 object left or right, 1 site
-            test_tasks = [task_number for task_number, task_left, task_right in zip(
+            test_tasks = [(task_number, task_left, task_right) for task_number, task_left, task_right in zip(
                 *[assembly2_differences[coord].values for coord in ['task_number', 'task_left', 'task_right']])
                           if (task_left == target_test_object or task_right == target_test_object)]
             # only evaluate each task once per site (cannot merge otherwise)
-            unvisited_test_tasks = [task for task in test_tasks if task not in visited_site_tasks[target_test_site]]
+            unvisited_test_tasks = {task_number: (task_left, task_right) for task_number, task_left, task_right
+                                    in test_tasks if task_number not in visited_site_tasks[target_test_site]}
             visited_site_tasks[target_test_site] += unvisited_test_tasks
             target_test = assembly2_differences[{
                 'site': [site == target_test_site for site in assembly2_differences['site_iteration'].values],
-                'task': [task in unvisited_test_tasks for task in assembly2_differences['task_number'].values]}]
+                'task': [task_number in unvisited_test_tasks
+                         for task_number in assembly2_differences['task_number'].values]}]
             # source test assembly are same unvisited tasks from 1 object, all sites
             source_test = assembly1_differences[{
                 'task': [task in unvisited_test_tasks for task in assembly1_differences['task_number'].values]}]
