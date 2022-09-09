@@ -1,21 +1,22 @@
-from collections import defaultdict
-
 import itertools
 import logging
+from collections import defaultdict
+
 import numpy as np
-from scipy.stats import pearsonr
 from tqdm import tqdm
 
 from brainio.assemblies import merge_data_arrays, walk_coords, array_is_element, DataAssembly
-from brainscore.metrics import Metric, Score
+from brainscore.metrics import Metric
 from brainscore.metrics.image_level_behavior import _o2
-from brainscore.metrics.regression import linear_regression, ridge_regression
+from brainscore.metrics.regression import ridge_regression, pearsonr_correlation
 from brainscore.utils import fullname
 
 
 class DeficitPrediction(Metric):
     def __init__(self):
         super(DeficitPrediction, self).__init__()
+        self._correlation = pearsonr_correlation(xarray_kwargs=dict(
+            correlation_coord='task_number', group_coord='site_iteration', drop_target_nans=True))
         self._logger = logging.getLogger(fullname(self))
 
     def __call__(self, assembly1, assembly2):
@@ -33,16 +34,11 @@ class DeficitPrediction(Metric):
         assembly2_differences = self.compute_differences(assembly2)
         assembly2_differences = assembly2_differences.mean('bootstrap')
 
-        # compare
+        # compare per site, then median over sites, to avoid biases alone driving correlation
         prediction_pairs = self.cross_validate(assembly1_differences, assembly2_differences)
         source = prediction_pairs.sel(type='source')
         target = prediction_pairs.sel(type='target')
-        source_vector = source.values.flatten()
-        target_vector = target.values.flatten()
-        not_nan = ~np.isnan(target_vector)  # not every task is part of every site split
-        source_vector, target_vector = source_vector[not_nan], target_vector[not_nan]
-        correlation, p = pearsonr(source_vector, target_vector)
-        score = Score([correlation, p], coords={'statistic': ['r', 'p']}, dims=['statistic'])
+        score = self._correlation(source, target)
         score.attrs['predictions'] = source
         score.attrs['target'] = target
         return score

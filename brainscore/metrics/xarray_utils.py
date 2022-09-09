@@ -70,10 +70,12 @@ class XarrayRegression:
 
 
 class XarrayCorrelation:
-    def __init__(self, correlation, correlation_coord=Defaults.stimulus_coord, group_coord=Defaults.group_coord):
+    def __init__(self, correlation, correlation_coord=Defaults.stimulus_coord, group_coord=Defaults.group_coord,
+                 drop_target_nans=False):
         self._correlation = correlation
         self._correlation_coord = correlation_coord
         self._group_coord = group_coord
+        self._drop_target_nans = drop_target_nans
 
     def __call__(self, prediction, target):
         # align
@@ -91,6 +93,10 @@ class XarrayCorrelation:
             for i, coord_value in enumerate(target[self._group_coord].values):
                 target_group = target.isel(**{group_dims[0]: i})  # `isel` is about 10x faster than `sel`
                 prediction_group = prediction.isel(**{group_dims[0]: i})
+                if self._drop_target_nans:
+                    nonnan = ~np.isnan(target_group)
+                    target_group = target_group[nonnan]
+                    prediction_group = prediction_group[nonnan]
                 r, p = self._correlation(prediction_group, target_group)
                 correlations.append(r)
             # package
