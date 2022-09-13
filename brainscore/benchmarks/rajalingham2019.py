@@ -1,29 +1,20 @@
 import itertools
 import logging
-import warnings
 
 import numpy as np
-import pandas as pd
-import xarray as xr
 from numpy.random import RandomState
-from pandas import DataFrame
-from scipy.spatial.distance import squareform, pdist
-from scipy.stats import pearsonr
 from tqdm import tqdm
-from xarray import DataArray
 
 import brainscore
 from brainio.assemblies import merge_data_arrays, walk_coords, DataAssembly, array_is_element
 from brainscore.benchmarks import BenchmarkBase
-from brainscore.metrics import Score
 from brainscore.metrics.behavior_differences import DeficitPredictionTask, DeficitPredictionObject, \
     DeficitPredictionSpace
 from brainscore.metrics.difference_of_correlations import DifferenceOfCorrelations
 from brainscore.metrics.image_level_behavior import _o2
 from brainscore.metrics.inter_individual_stats_ceiling import InterIndividualStatisticsCeiling
 from brainscore.metrics.significant_match import SignificantCorrelation, SignificantPerformanceChange
-from brainscore.metrics.spatial_correlation import SpatialCorrelationSimilarity
-from brainscore.metrics.transformations import CrossValidation
+from brainscore.metrics.spatial_correlation import SpatialCorrelationSimilarity, SpatialCharacterizationMetric
 from brainscore.model_interface import BrainModel
 from brainscore.utils import fullname
 from data_packaging.rajalingham2019 import collect_assembly
@@ -196,13 +187,14 @@ class _Rajalingham2019(BenchmarkBase):
 
 
 def Rajalingham2019GlobalDeficitsSignificant():
+    characterization = CharacterizeDeltas()
     metric = SignificantPerformanceChange(condition_name='injected',
                                           condition_value1=False, condition_value2=True,
                                           trial_dimension='task_site_injected')
 
     def filter_global_metric(source_assembly, target_assembly):
-        dprime_assembly_all = characterize(source_assembly)
-        dprime_assembly = subselect_tasks(dprime_assembly_all, target_assembly)
+        dprime_assembly_all = characterization.characterize(source_assembly)
+        dprime_assembly = characterization.subselect_tasks(dprime_assembly_all, target_assembly)
         flat_source_assembly = flatten_assembly_dims(dprime_assembly, dim_coords=dict(
             task='task_number', site='site_iteration', injected='injected_'))
 
@@ -217,14 +209,15 @@ def Rajalingham2019GlobalDeficitsSignificant():
 
 
 def Rajalingham2019LateralDeficitDifference():
+    characterization = CharacterizeDeltas()
     metric = SignificantPerformanceChange(condition_name='visual_field',
                                           condition_value1='ipsi', condition_value2='contra',
                                           trial_dimension='task_site')
 
     def filter_visual_fields_metric(source_assembly, target_assembly):
-        dprime_assembly_all = characterize(source_assembly)
-        dprime_assembly = subselect_tasks(dprime_assembly_all, target_assembly)
-        source_deficit_assembly = compute_differences(dprime_assembly)
+        dprime_assembly_all = characterization.characterize(source_assembly)
+        dprime_assembly = characterization.subselect_tasks(dprime_assembly_all, target_assembly)
+        source_deficit_assembly = characterization.compute_differences(dprime_assembly)
         hemisphere_visualfield = {'left': 'ipsi', 'right': 'contra'}  # FIXME
         source_deficit_assembly['visual_field'] = 'site', [hemisphere_visualfield[hemisphere] for hemisphere in
                                                            source_deficit_assembly['hemisphere'].values]
@@ -234,7 +227,7 @@ def Rajalingham2019LateralDeficitDifference():
         target_assembly = target_assembly.mean('bootstrap')
         target_assembly = target_assembly[{'visual_field': [visual_field in ['ipsi', 'contra'] for visual_field in
                                                             target_assembly['visual_field'].values]}]
-        target_deficit_assembly = compute_differences(target_assembly)
+        target_deficit_assembly = characterization.compute_differences(target_assembly)
         target_deficit_assembly = target_deficit_assembly.mean('task').mean('site')  # aggregate for metric
         return metric(flat_source_deficit_assembly, target_deficit_assembly)
 
@@ -243,8 +236,8 @@ def Rajalingham2019LateralDeficitDifference():
 
 
 def Rajalingham2019SpatialCorrelationSignificant():
-    metric = SpatialCharacterizationMetric(
-        SignificantCorrelation(x_coord='distance'))
+    metric = SpatialCharacterizationMetric(similarity_metric=SignificantCorrelation(x_coord='distance'),
+                                           characterization=CharacterizeDeltas())
 
     def filter_global_metric(source_assembly, target_assembly):
         target_assembly = target_assembly.sel(visual_field='all')
@@ -255,8 +248,8 @@ def Rajalingham2019SpatialCorrelationSignificant():
 
 
 def Rajalingham2019SpatialCorrelationSimilarity():
-    metric = SpatialCharacterizationMetric(
-        DifferenceOfCorrelations(correlation_variable='distance'))
+    metric = SpatialCharacterizationMetric(similarity_metric=DifferenceOfCorrelations(correlation_variable='distance'),
+                                           characterization=CharacterizeDeltas())
 
     def filter_global_metric(source_assembly, target_assembly):
         target_assembly = target_assembly.sel(visual_field='all')
@@ -308,7 +301,7 @@ def DicarloRajalingham2019SpatialDeficitsQuantified():
 
     similarity_metric = SpatialCorrelationSimilarity(similarity_function=inv_ks_similarity,
                                                      bin_size_mm=.8)  # arbitrary bin size
-    metric = SpatialCharacterizationMetric()
+    metric = SpatialCharacterizationMetric(similarity_metric=similarity_metric, characterization=CharacterizeDeltas())
     metric._similarity_metric = similarity_metric
     benchmark = _Rajalingham2019(identifier='dicarlo.Rajalingham2019.IT-spatial_deficit_similarity_quantified',
                                  metric=metric)
@@ -319,41 +312,6 @@ def DicarloRajalingham2019SpatialDeficitsQuantified():
     return benchmark
 
 
-def characterize(assembly):
-    """ compute per-task performance from `presentation x choice` assembly """
-    # xarray can't do multi-dimensional grouping, do things manually
-    o2s = []
-    adjacent_values = assembly['injected'].values, assembly['site'].values
-    for injected, site in tqdm(itertools.product(*adjacent_values), desc='characterize',
-                               total=np.prod([len(values) for values in adjacent_values])):
-        current_assembly = assembly.sel(injected=injected, site=site)
-        o2 = _o2(current_assembly)
-        o2 = o2.expand_dims('injected').expand_dims('site')
-        o2['injected'] = [injected]
-        for (coord, _, _), value in zip(walk_coords(assembly['site']), site):
-            o2[coord] = 'site', [value]
-        o2 = DataAssembly(o2)  # ensure multi-index on site
-        o2s.append(o2)
-    o2s = merge_data_arrays(o2s)  # this only takes ~1s, ok
-    return o2s
-
-
-def subselect_tasks(assembly, reference_assembly):
-    tasks_left, tasks_right = reference_assembly['task_left'].values, reference_assembly['task_right'].values
-    task_values = [assembly.sel(task_left=task_left, task_right=task_right).values
-                   for task_left, task_right in zip(tasks_left, tasks_right)]
-    task_values = type(assembly)(task_values, coords=
-    {**{
-        'task_number': ('task', reference_assembly['task_number'].values),
-        'task_left': ('task', tasks_left),
-        'task_right': ('task', tasks_right),
-    }, **{coord: (dims, values) for coord, dims, values in walk_coords(assembly)
-          if not any(array_is_element(dims, dim) for dim in ['task_left', 'task_right'])}
-     }, dims=['task'] + [dim for dim in assembly.dims if
-                         dim not in ['task_left', 'task_right']])
-    return task_values
-
-
 def flatten_assembly_dims(assembly, dim_coords):
     # flatten dimensions: first convert MultiIndices to single index each, then stack and re-introduce MultiIndex
     single_index_source = assembly.reset_index(list(dim_coords))
@@ -362,172 +320,6 @@ def flatten_assembly_dims(assembly, dim_coords):
     flat_source_deficit_assembly = single_index_source.stack({joint_dim_name: list(dim_coords)})
     flat_source_deficit_assembly = type(flat_source_deficit_assembly)(flat_source_deficit_assembly)  # re-index
     return flat_source_deficit_assembly
-
-
-class SpatialCharacterizationMetric:
-    def __init__(self, similarity_metric):
-        self._similarity_metric = similarity_metric
-
-    def __call__(self, behaviors, target):
-        dprime_assembly_all = characterize(behaviors)
-        dprime_assembly = subselect_tasks(dprime_assembly_all, target)
-        candidate_assembly = dprime_assembly.transpose('injected', 'site', 'task')  # match target assembly shape
-        candidate_statistic = self.compute_response_deficit_distance_candidate(candidate_assembly)
-        target = target.mean('bootstrap')
-        target_statistic = self.compute_response_deficit_distance_target(target)
-
-        score = self._similarity_metric(candidate_statistic, target_statistic)
-        score.attrs['candidate_behaviors'] = behaviors
-        score.attrs['candidate_statistic'] = candidate_statistic
-        score.attrs['candidate_assembly'] = candidate_assembly
-        return score
-
-    def compute_response_deficit_distance_target(self, dprime_assembly):
-        statistics_list = []
-        for monkey in set(dprime_assembly.monkey.data):
-            sub_assembly = dprime_assembly.sel(monkey=monkey)
-            distances, correlations = self._compute_response_deficit_distance(sub_assembly)
-            mask = np.triu_indices(sub_assembly.site.size)
-
-            stats = self.to_xarray(correlations[mask], distances[mask], source=monkey)
-            statistics_list.append(stats)
-
-        return xr.concat(statistics_list, dim='meta')
-
-    def compute_response_deficit_distance_candidate(self, dprime_assembly):
-        distances, correlations = self._compute_response_deficit_distance(dprime_assembly)
-        mask = np.triu_indices(dprime_assembly.site.size)
-        spatial_deficits = self.to_xarray(correlations[mask], distances[mask])
-        spatial_deficits = spatial_deficits.dropna('meta')  # drop cross-hemisphere distances
-        return spatial_deficits
-
-    def _compute_response_deficit_distance(self, dprime_assembly):
-        """
-        :param dprime_assembly: assembly of behavioral performance
-        :return: square matrices with correlation and distance values; each matrix elem == value between site_i, site_j
-        """
-        distances = self.pairwise_distances(dprime_assembly)
-
-        behavioral_differences = compute_differences(dprime_assembly)
-        # dealing with nan values while correlating; not np.ma.corrcoef: https://github.com/numpy/numpy/issues/15601
-        correlations = DataFrame(behavioral_differences.data).T.corr().values
-        correlations[np.isnan(distances)] = None
-
-        return distances, correlations
-
-    @staticmethod
-    def to_xarray(correlations, distances, source='model', array=None):
-        """
-        :param values: list of data values
-        :param distances: list of distance values, each distance value has to correspond to one data value
-        :param source: name of monkey
-        :param array: name of recording array
-        """
-        xarray_statistic = DataArray(
-            data=correlations,
-            dims=["meta"],
-            coords={
-                'meta': pd.MultiIndex.from_product([distances, [source], [array]],
-                                                   names=('distance', 'source', 'array'))
-            }
-        )
-        return xarray_statistic
-
-    @staticmethod
-    def pairwise_distances(dprime_assembly):
-        locations = np.stack([dprime_assembly.site.site_x.data,
-                              dprime_assembly.site.site_y.data,
-                              dprime_assembly.site.site_z.data]).T
-        distances = pdist(locations, metric='euclidean')
-        distances = squareform(distances)
-        # ignore distances from different hemispheres
-        # TODO: at some point, we should actually include these but we need to fix xyz locations in the model
-        if hasattr(dprime_assembly, 'hemisphere') and dprime_assembly['hemisphere'].values.size > 1:
-            same_hemispheres = np.repeat([dprime_assembly['hemisphere'].values], len(distances), axis=0) == \
-                               np.repeat(dprime_assembly['hemisphere'].values, len(distances)) \
-                                   .reshape(len(distances), len(distances))
-            distances[~same_hemispheres] = None
-        return distances
-
-    @property
-    def ceiling(self):
-        split1, split2 = self._target_assembly.sel(split=0), self._target_assembly.sel(split=1)
-        split1_diffs = split1.sel(silenced=False) - split1.sel(silenced=True)
-        split2_diffs = split2.sel(silenced=False) - split2.sel(silenced=True)
-        split_correlation, p = pearsonr(split1_diffs.values.flatten(), split2_diffs.values.flatten())
-        return Score([split_correlation], coords={'aggregation': ['center']}, dims=['aggregation'])
-
-    @classmethod
-    def apply_site(cls, source_assembly, site_target_assembly):
-        site_target_assembly = site_target_assembly.squeeze('site')
-        np.testing.assert_array_equal(source_assembly.sortby('task_number')['task_left'].values,
-                                      site_target_assembly.sortby('task_number')['task_left'].values)
-        np.testing.assert_array_equal(source_assembly.sortby('task_number')['task_right'].values,
-                                      site_target_assembly.sortby('task_number')['task_right'].values)
-
-        # filter non-nan task measurements from target
-        nonnan_tasks = site_target_assembly['task'][~site_target_assembly.isnull()]
-        if len(nonnan_tasks) < len(site_target_assembly):
-            warnings.warn(f"Ignoring tasks {site_target_assembly['task'][~site_target_assembly.isnull()].values}")
-        site_target_assembly = site_target_assembly.sel(task=nonnan_tasks)
-        source_assembly = source_assembly.sel(task=nonnan_tasks.values)
-
-        # try to predict from model
-        task_split = CrossValidation(split_coord='task_number', stratification_coord=None,
-                                     kfold=True, splits=len(site_target_assembly['task']))
-        task_scores = task_split(source_assembly, site_target_assembly, apply=cls.apply_task)
-        task_scores = task_scores.raw
-        correlation, p = pearsonr(task_scores.sel(type='source'), task_scores.sel(type='target'))
-        score = Score([correlation, p], coords={'statistic': ['r', 'p']}, dims=['statistic'])
-        score.attrs['predictions'] = task_scores.sel(type='source')
-        score.attrs['target'] = task_scores.sel(type='target')
-        return score
-
-    @staticmethod
-    def apply_task(source_train, target_train, source_test, target_test):
-        """
-        finds the best-matching site in the source train assembly to predict the task effects in the test target.
-        :param source_train: source assembly for mapping with t tasks and n sites
-        :param target_train: target assembly for mapping with t tasks
-        :param source_test: source assembly for testing with 1 task and n sites
-        :param target_test: target assembly for testing with 1 task
-        :return: a pair
-        """
-        # deal with xarray bug
-        source_train, source_test = deal_with_xarray_bug(source_train), deal_with_xarray_bug(source_test)
-        # map: find site in assembly1 that best matches mapping tasks
-        correlations = {}
-        for site in source_train['site'].values:
-            source_site = source_train.sel(site=site)
-            np.testing.assert_array_equal(source_site['task'].values, target_train['task'].values)
-            correlation, p = pearsonr(source_site, target_train)
-            correlations[site] = correlation
-        best_site = [site for site, correlation in correlations.items() if correlation == max(correlations.values())]
-        best_site = best_site[0]  # choose first one if there are multiple
-        # test: predictivity of held-out task.
-        # We can only collect the single prediction here and then correlate in outside loop
-        source_test = source_test.sel(site=best_site)
-        np.testing.assert_array_equal(source_test['task'].values, target_test['task'].values)
-        pair = type(target_test)([source_test.values[0], target_test.values[0]],
-                                 coords={  # 'task': source_test['task'].values,
-                                     'type': ['source', 'target']},
-                                 dims=['type'])  # , 'task'
-        return pair
-
-
-def compute_differences(behaviors):
-    """
-    :param behaviors: an assembly with a dimension `injected` and values `[True, False]`
-    :return: the difference between these two conditions (injected - control)
-    """
-    return behaviors.sel(injected=True) - behaviors.sel(injected=False)
-
-
-def deal_with_xarray_bug(assembly):
-    if hasattr(assembly, 'site_level_0'):
-        return type(assembly)(assembly.values, coords={
-            coord: (dim, values) for coord, dim, values in walk_coords(assembly) if coord != 'site_level_0'},
-                              dims=assembly.dims)
 
 
 class CharacterizeDeltas:
