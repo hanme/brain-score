@@ -8,8 +8,8 @@ from tqdm import tqdm
 import brainscore
 from brainio.assemblies import merge_data_arrays, walk_coords, DataAssembly, array_is_element
 from brainscore.benchmarks import BenchmarkBase
-from brainscore.metrics.behavior_differences import DeficitPredictionTask, DeficitPredictionObject, \
-    DeficitPredictionSpace
+from brainscore.metrics.behavior_differences import DeltaPredictionTask, DeltaPredictionObject, \
+    DeltaPredictionSpace
 from brainscore.metrics.difference_of_correlations import DifferenceOfCorrelations
 from brainscore.metrics.image_level_behavior import _o2
 from brainscore.metrics.inter_individual_stats_ceiling import InterIndividualStatisticsCeiling
@@ -259,8 +259,8 @@ def Rajalingham2019SpatialCorrelationSimilarity():
                             metric=filter_global_metric)
 
 
-def Rajalingham2019DeficitPredictionTask():
-    metric = DeficitPredictionTask()
+def Rajalingham2019DeltaPredictionTask():
+    metric = DeltaPredictionTask()
 
     def filter_global_metric(source_assembly, target_assembly):
         target_assembly = target_assembly.sel(visual_field='all')
@@ -275,8 +275,8 @@ def Rajalingham2019DeficitPredictionTask():
                             )
 
 
-def Rajalingham2019DeficitPredictionObject():
-    metric = DeficitPredictionObject()
+def Rajalingham2019DeltaPredictionObject():
+    metric = DeltaPredictionObject()
 
     def filter_global_metric(source_assembly, target_assembly):
         target_assembly = target_assembly.sel(visual_field='all')
@@ -324,6 +324,13 @@ def flatten_assembly_dims(assembly, dim_coords):
 
 class CharacterizeDeltas:
     def __call__(self, assembly1, assembly2):
+        """
+        :param assembly1: a tuple with the first element representing the control behavior in the format of
+            `presentation: p, choice: c` and the second element representing inactivations behaviors in
+            `presentation: p, choice: c, site: n`
+        :param assembly2: a processed assembly in the format of `injected :2, task: c * (c-1), site: m`
+        :return the two characterized difference assemblies in the form `task x site`
+        """
         assembly1_characterized = self.characterize(assembly1)
         assembly1_tasks = self.subselect_tasks(assembly1_characterized, assembly2)
         assembly1_differences = self.compute_differences(assembly1_tasks)

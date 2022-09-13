@@ -6,24 +6,22 @@ import numpy as np
 from tqdm import tqdm
 
 from brainio.assemblies import merge_data_arrays, walk_coords
-from brainscore.metrics import Metric
+from brainscore.metrics import Metric, Score
 from brainscore.metrics.regression import ridge_regression, pearsonr_correlation
 from brainscore.utils import fullname
 
 
-class DeficitPrediction(Metric):
+class DeltaPrediction(Metric):
     def __init__(self):
-        super(DeficitPrediction, self).__init__()
+        super(DeltaPrediction, self).__init__()
         self._correlation = pearsonr_correlation(xarray_kwargs=dict(
             correlation_coord='task_number', group_coord='site_iteration', drop_target_nans=True))
         self._logger = logging.getLogger(fullname(self))
 
-    def __call__(self, assembly1, assembly2):
+    def __call__(self, assembly1, assembly2) -> Score:
         """
-        :param assembly1: a tuple with the first element representing the control behavior in the format of
-            `presentation: p, choice: c` and the second element representing inactivations behaviors in
-            `presentation: p, choice: c, site: n`
-        :param assembly2: a processed assembly in the format of `injected :2, task: c * (c-1), site: m`
+        :param assembly1: `task x site` deltas
+        :param assembly2: `task x site` deltas
         :return: a Score
         """
 
@@ -61,7 +59,11 @@ class DeficitPrediction(Metric):
         return pair
 
 
-class DeficitPredictionTask(DeficitPrediction):
+class DeltaPredictionTask(DeltaPrediction):
+    """"
+    cross-validate by leaving out one task for a particular site, attempt to predict deltas on this task
+    """
+
     def cross_validate(self, assembly1_differences, assembly2_differences):
         sites = assembly2_differences['site_iteration'].values
         tasks = assembly2_differences['task_number'].values
@@ -96,10 +98,16 @@ class DeficitPredictionTask(DeficitPrediction):
         return prediction_pairs
 
 
-class DeficitPredictionObject(DeficitPrediction):
-    # the setup here is to hold out an entire object. For instance, if 'Bear' is in a task in test, then no task in
-    # train may include Bear. However, it can still include other objects from test, for instance test tasks could be
-    # Bear-Elephant and Bear-Chair, then train tasks could still include Elephant-Dog and Plane-Chair
+class DeltaPredictionObject(DeltaPrediction):
+    """"
+    cross-validate by leaving out "one object" for a particular site (i.e. all tasks involving this object),
+    attempt to predict deltas on the tasks associated with this object
+    For instance, if 'Bear' is in a task in test, then no task in train may include Bear.
+    However, it can still include other objects from test,
+    for instance test tasks could be Bear-Elephant and Bear-Chair,
+    then train tasks could still include Elephant-Dog and Plane-Chair.
+    """
+
     def cross_validate(self, assembly1_differences, assembly2_differences):
         sites = assembly2_differences['site_iteration'].values
         objects = np.concatenate((assembly2_differences['task_left'], assembly2_differences['task_right']))

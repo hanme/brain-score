@@ -286,14 +286,16 @@ def _experimental_benchmark_pool():
     ## Rajalingham2019
     from brainscore.benchmarks.rajalingham2019 import \
         Rajalingham2019GlobalDeficitsSignificant, Rajalingham2019SpatialCorrelationSignificant, \
-        Rajalingham2019DeficitPredictionTask, Rajalingham2019DeficitPredictionObject, \
-        Rajalingham2019LateralDeficitDifference
+        Rajalingham2019LateralDeficitDifference, \
+        Rajalingham2019DeltaPredictionTask, Rajalingham2019DeltaPredictionObject, \
+        Rajalingham2019DeltaPredictionSpace
     pool['dicarlo.Rajalingham2019-global_deficits_significant'] = LazyLoad(Rajalingham2019GlobalDeficitsSignificant)
     pool['dicarlo.Rajalingham2019-lateral_deficit_difference'] = LazyLoad(Rajalingham2019LateralDeficitDifference)
     pool['dicarlo.Rajalingham2019-spatial_correlation_significant'] = LazyLoad(
         Rajalingham2019SpatialCorrelationSignificant)
-    pool['dicarlo.Rajalingham2019-deficit_prediction_task'] = LazyLoad(Rajalingham2019DeficitPredictionTask)
-    pool['dicarlo.Rajalingham2019-deficit_prediction_object'] = LazyLoad(Rajalingham2019DeficitPredictionObject)
+    pool['dicarlo.Rajalingham2019-delta_prediction_task'] = LazyLoad(Rajalingham2019DeltaPredictionTask)
+    pool['dicarlo.Rajalingham2019-delta_prediction_object'] = LazyLoad(Rajalingham2019DeltaPredictionObject)
+    pool['dicarlo.Rajalingham2019-delta_prediction_space'] = LazyLoad(Rajalingham2019DeltaPredictionSpace)
 
     return pool
 
