@@ -3,11 +3,11 @@ from brainscore.metrics import Score, Metric
 
 
 def _aggregate(scores):
-    '''
+    """
     Aggregates list of values into Score object
     :param scores: list of values assumed to be scores
     :return: Score object | where score['center'] = mean(scores) and score['error'] = std(scores)
-    '''
+    """
     center = np.median(scores)
     error = np.median(np.absolute(scores - np.median(scores)))  # MAD
     aggregate_score = Score([center, error], coords={'aggregation': ['center', 'error']}, dims=('aggregation',))
@@ -17,25 +17,25 @@ def _aggregate(scores):
 
 
 class SpatialCorrelationSimilarity(Metric):
-    '''
+    """
     Computes the similarity of two given distributions using a given similarity_function. The similarity_function is
     applied to each bin which in turn are created based on a given bin size and the independent variable of the
     distributions
-    '''
+    """
 
-    def __init__(self, similarity_function, bin_size_mm) -> object:
-        '''
+    def __init__(self, similarity_function, bin_size_mm):
+        """
         :param similarity_function: similarity_function to be applied to each bin
         :param bin_size_mm: size per bin in mm | one fixed size, utilize Score.RAW_VALUES_KEY to change weighting
-        '''
+        """
         self.similarity_function = similarity_function
         self.bin_size = bin_size_mm
 
     def __call__(self, candidate_statistic, target_statistic):
-        '''
+        """
         :param candidate_statistic: list of 2 lists, [0] distances -> binning over this, [1] correlation per distance value
         :param target_statistic: list of 2 lists, [0] distances -> binning over this, [1] correlation per distance value
-        '''
+        """
         self.target_statistic = target_statistic
         self.candidate_statistic = candidate_statistic
         self._bin_min = np.min(self.target_statistic.distances)
@@ -50,10 +50,10 @@ class SpatialCorrelationSimilarity(Metric):
         return _aggregate(bin_scores)
 
     def _bin_masks(self):
-        '''
+        """
         Generator: Yields masks indexing which elements are within each bin.
         :yield: mask(target, current_bin), mask(candidate, current_bin), enough data in the bins to do further computations
-        '''
+        """
         for lower_bound_mm in np.linspace(self._bin_min, self._bin_max,
                                           int(self._bin_max * (1 / self.bin_size) + 1) * 2):
             t = np.where(np.logical_and(self.target_statistic.distances >= lower_bound_mm,
