@@ -129,11 +129,17 @@ class _Rajalingham2019(BenchmarkBase):
 
             score = score.expand_dims('bootstrap')
             score['bootstrap'] = [bootstrap]
+            for attr_key, attr_value in score.attrs.items():
+                score.attrs[attr_key] = attr_value.expand_dims('bootstrap')
+                score.attrs[attr_key]['bootstrap'] = [bootstrap]
             bootstrap_scores.append(score)
 
         # average score over bootstraps
-        bootstrap_scores = merge_data_arrays(bootstrap_scores)
-        score = bootstrap_scores.mean('bootstrap')
+        merged_scores = merge_data_arrays(bootstrap_scores)
+        score = merged_scores.mean('bootstrap')
+        for attr_key in bootstrap_scores[0].attrs:
+            merged_values = merge_data_arrays([score.attrs[attr_key] for score in bootstrap_scores])
+            score.attrs[attr_key] = merged_values
         return score
 
     def _perform_task_unperturbed(self, candidate: BrainModel):
@@ -259,18 +265,32 @@ def Rajalingham2019SpatialCorrelationSimilarity():
 
 def Rajalingham2019DeficitPredictionTask():
     metric = DeficitPredictionTask()
+
+    def filter_global_metric(source_assembly, target_assembly):
+        target_assembly = target_assembly.sel(visual_field='all')
+        return metric(source_assembly, target_assembly)
+
     return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-deficit_prediction_task',
                             # num_sites=100,  # TODO
-                            metric=metric,
+                            metric=filter_global_metric,
                             ceiling_func=None,  # TODO
+                            num_experiment_bootstraps=3,  # fixme
                             )
 
 
 def Rajalingham2019DeficitPredictionObject():
     metric = DeficitPredictionObject()
+
+    def filter_global_metric(source_assembly, target_assembly):
+        target_assembly = target_assembly.sel(visual_field='all')
+        return metric(source_assembly, target_assembly)
+
     return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-deficit_prediction_object',
                             # num_sites=100,  # TODO
-                            metric=metric)
+                            metric=filter_global_metric,
+                            ceiling_func=None,  # TODO
+                            num_experiment_bootstraps=3,  # fixme
+                            )
 
 
 def DicarloRajalingham2019SpatialDeficitsQuantified():
