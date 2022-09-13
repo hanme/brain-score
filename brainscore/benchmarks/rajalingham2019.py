@@ -5,7 +5,6 @@ import warnings
 import numpy as np
 import pandas as pd
 import xarray as xr
-from brainio.assemblies import merge_data_arrays, walk_coords, DataAssembly, array_is_element
 from numpy.random import RandomState
 from pandas import DataFrame
 from scipy.spatial.distance import squareform, pdist
@@ -14,9 +13,11 @@ from tqdm import tqdm
 from xarray import DataArray
 
 import brainscore
+from brainio.assemblies import merge_data_arrays, walk_coords, DataAssembly, array_is_element
 from brainscore.benchmarks import BenchmarkBase
 from brainscore.metrics import Score
-from brainscore.metrics.behavior_differences import DeficitPredictionTask, DeficitPredictionObject
+from brainscore.metrics.behavior_differences import DeficitPredictionTask, DeficitPredictionObject, \
+    DeficitPredictionSpace
 from brainscore.metrics.difference_of_correlations import DifferenceOfCorrelations
 from brainscore.metrics.image_level_behavior import _o2
 from brainscore.metrics.inter_individual_stats_ceiling import InterIndividualStatisticsCeiling
@@ -25,7 +26,7 @@ from brainscore.metrics.spatial_correlation import SpatialCorrelationSimilarity
 from brainscore.metrics.transformations import CrossValidation
 from brainscore.model_interface import BrainModel
 from brainscore.utils import fullname
-from packaging.rajalingham2019 import collect_assembly
+from data_packaging.rajalingham2019 import collect_assembly
 
 TASK_LOOKUP = {
     'dog': 'Dog',
@@ -64,7 +65,7 @@ MUSCIMOL_PARAMETERS = {
 
 
 class _Rajalingham2019(BenchmarkBase):
-    def __init__(self, identifier, metric, ceiling_func=None,
+    def __init__(self, identifier, metric, characterize=None, ceiling_func=None,
                  num_sites_per_hemisphere=10, num_experiment_bootstraps=10):
         self._target_assembly = collect_assembly()
         self._training_stimuli = brainscore.get_stimulus_set('dicarlo.hvm')
@@ -76,6 +77,7 @@ class _Rajalingham2019(BenchmarkBase):
 
         self._num_sites_per_hemisphere = num_sites_per_hemisphere
         self._num_experiment_bootstraps = num_experiment_bootstraps
+        self._characterize = characterize or (lambda a1, a2: (a1, a2))
         self._metric = metric
         self._logger = logging.getLogger(fullname(self))
         super(_Rajalingham2019, self).__init__(
@@ -125,7 +127,8 @@ class _Rajalingham2019(BenchmarkBase):
             behaviors = merge_data_arrays(behaviors)
             behaviors = self.align_task_names(behaviors)
 
-            score = self._metric(behaviors, self._target_assembly)
+            source, target = self._characterize(behaviors, self._target_assembly)
+            score = self._metric(source, target)
 
             score = score.expand_dims('bootstrap')
             score['bootstrap'] = [bootstrap]
@@ -272,6 +275,7 @@ def Rajalingham2019DeficitPredictionTask():
 
     return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-deficit_prediction_task',
                             # num_sites=100,  # TODO
+                            characterize=CharacterizeDeltas(),
                             metric=filter_global_metric,
                             ceiling_func=None,  # TODO
                             num_experiment_bootstraps=3,  # fixme
@@ -287,6 +291,7 @@ def Rajalingham2019DeficitPredictionObject():
 
     return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-deficit_prediction_object',
                             # num_sites=100,  # TODO
+                            characterize=CharacterizeDeltas(),
                             metric=filter_global_metric,
                             ceiling_func=None,  # TODO
                             num_experiment_bootstraps=3,  # fixme
@@ -295,9 +300,9 @@ def Rajalingham2019DeficitPredictionObject():
 
 def DicarloRajalingham2019SpatialDeficitsQuantified():
     def inv_ks_similarity(p, q):
-        '''
+        """
         Inverted ks similarity -> resulting in a score within [0,1], 1 being a perfect match
-        '''
+        """
         import scipy.stats
         return 1 - scipy.stats.ks_2samp(p, q)[0]
 
@@ -397,10 +402,10 @@ class SpatialCharacterizationMetric:
         return spatial_deficits
 
     def _compute_response_deficit_distance(self, dprime_assembly):
-        '''
+        """
         :param dprime_assembly: assembly of behavioral performance
         :return: square matrices with correlation and distance values; each matrix elem == value between site_i, site_j
-        '''
+        """
         distances = self.pairwise_distances(dprime_assembly)
 
         behavioral_differences = compute_differences(dprime_assembly)
@@ -523,3 +528,53 @@ def deal_with_xarray_bug(assembly):
         return type(assembly)(assembly.values, coords={
             coord: (dim, values) for coord, dim, values in walk_coords(assembly) if coord != 'site_level_0'},
                               dims=assembly.dims)
+
+
+class CharacterizeDeltas:
+    def __call__(self, assembly1, assembly2):
+        assembly1_characterized = self.characterize(assembly1)
+        assembly1_tasks = self.subselect_tasks(assembly1_characterized, assembly2)
+        assembly1_differences = self.compute_differences(assembly1_tasks)
+        assembly2_differences = self.compute_differences(assembly2)
+        assembly2_differences = assembly2_differences.mean('bootstrap')
+        return assembly1_differences, assembly2_differences
+
+    def characterize(self, assembly):
+        """ compute per-task performance from `presentation x choice` assembly """
+        # xarray can't do multi-dimensional grouping, do things manually
+        o2s = []
+        adjacent_values = assembly['injected'].values, assembly['site'].values
+        for injected, site in tqdm(itertools.product(*adjacent_values), desc='characterize',
+                                   total=np.prod([len(values) for values in adjacent_values])):
+            current_assembly = assembly.sel(injected=injected, site=site)
+            o2 = _o2(current_assembly)
+            o2 = o2.expand_dims('injected').expand_dims('site')
+            o2['injected'] = [injected]
+            for (coord, _, _), value in zip(walk_coords(assembly['site']), site):
+                o2[coord] = 'site', [value]
+            o2 = DataAssembly(o2)  # ensure multi-index on site
+            o2s.append(o2)
+        o2s = merge_data_arrays(o2s)  # this only takes ~1s, ok
+        return o2s
+
+    def subselect_tasks(self, assembly, reference_assembly):
+        tasks_left, tasks_right = reference_assembly['task_left'].values, reference_assembly['task_right'].values
+        task_values = [assembly.sel(task_left=task_left, task_right=task_right).values
+                       for task_left, task_right in zip(tasks_left, tasks_right)]
+        task_values = type(assembly)(task_values, coords=
+        {**{
+            'task_number': ('task', reference_assembly['task_number'].values),
+            'task_left': ('task', tasks_left),
+            'task_right': ('task', tasks_right),
+        }, **{coord: (dims, values) for coord, dims, values in walk_coords(assembly)
+              if not any(array_is_element(dims, dim) for dim in ['task_left', 'task_right'])}
+         }, dims=['task'] + [dim for dim in assembly.dims if
+                             dim not in ['task_left', 'task_right']])
+        return task_values
+
+    def compute_differences(self, behaviors):
+        """
+        :param behaviors: an assembly with a dimension `injected` and values `[True, False]`
+        :return: the difference between these two conditions (injected - control)
+        """
+        return behaviors.sel(injected=True) - behaviors.sel(injected=False)
