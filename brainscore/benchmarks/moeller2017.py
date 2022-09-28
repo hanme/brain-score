@@ -10,7 +10,7 @@ from brainscore.metrics.accuracy import Accuracy
 from brainscore.metrics.significant_match import SignificantPerformanceChange
 from brainscore.model_interface import BrainModel
 from brainscore.utils import LazyLoad
-from packaging.moeller2017 import collect_target_assembly
+from data_packaging.moeller2017 import collect_target_assembly
 
 """
 Benchmarks from the Moeller et al. 2017 paper (https://www.nature.com/articles/nn.4527).

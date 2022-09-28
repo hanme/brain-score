@@ -17,7 +17,7 @@ from brainscore.metrics.significant_match import SignificantCorrelation, Signifi
     is_significantly_different, NoSignificantPerformanceChange
 from brainscore.model_interface import BrainModel
 from brainscore.utils import fullname
-from packaging.afraz2015 import muscimol_delta_overall_accuracy, collect_stimuli, collect_site_deltas, \
+from data_packaging.afraz2015 import muscimol_delta_overall_accuracy, collect_stimuli, collect_site_deltas, \
     collect_delta_overall_accuracy
 
 BIBTEX = """@article {Afraz6730,

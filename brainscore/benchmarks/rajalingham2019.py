@@ -407,92 +407,120 @@ class Rajalingham2019DeltaPredictionSpace(_Rajalingham2019):
         candidate.start_task(task=BrainModel.Task.probabilities, fitting_stimuli=self._training_stimuli)
         unperturbed_source_behavior = self._perform_task_unperturbed(candidate)
 
+        subject_scores = []
         for subject in target_assembly['monkey'].values:
             subject_assembly = target_assembly.sel(monkey=subject)
-            subject_scores = self.adapt_tissues(target_assembly=subject_assembly, candidate=candidate,
-                                                unperturbed_source_behavior=unperturbed_source_behavior)
-        score = scores.mean('site')
+            subject_score = self.adapt_tissues(target_assembly=subject_assembly, candidate=candidate,
+                                               unperturbed_source_behavior=unperturbed_source_behavior)
+            subject_score = subject_score.expand_dims('subject')
+            subject_score['subject'] = [subject]
+            subject_scores.append(subject_score)
+        subject_scores = Score.merge(subject_scores)
+        score = subject_scores.mean('subject')
         return score
 
     def adapt_tissues(self, target_assembly, candidate, unperturbed_source_behavior):
         # iterate over all sites to hold out
         scores = []
         for heldout_site in target_assembly['site_iteration'].values:
-            train_target_assembly = target_assembly[{'site': [site != heldout_site
-                                                              for site in target_assembly['site_iteration'].values]}]
+            test_target = target_assembly[{'site': [site == heldout_site
+                                                    for site in target_assembly['site_iteration'].values]}]
+            train_target = target_assembly[{'site': [site != heldout_site
+                                                     for site in target_assembly['site_iteration'].values]}]
             # initialization
-            a = np.arange(9).reshape(3, 3)  # todo self._random_state.random(size=(3, 3))
-            offset = np.arange(3)  # todo self._random_state.random(size=3)
+            a = self._random_state.random(size=(3, 3))
+            offset = self._random_state.random(size=3)
             perturbation_parameters = copy.deepcopy(MUSCIMOL_PARAMETERS)
 
+            # adapt
             errors_list = []
-            epochs = 5000
-            progress_bar = tqdm(total=epochs, desc="epochs")
+            parameters_list = []
+            progress_bar = tqdm(total=self._num_epochs, desc="epochs")
             minimize_function = functools.partial(self.minimize_function,
-                                                  train_target_assembly=train_target_assembly,
+                                                  train_target_assembly=train_target,
                                                   perturbation_parameters=perturbation_parameters,
                                                   candidate=candidate,
                                                   unperturbed_source_behavior=unperturbed_source_behavior,
                                                   errors_list=errors_list,
-                                                  epochs=epochs,
+                                                  parameters_list=parameters_list,
+                                                  num_epochs=self._num_epochs,
                                                   progress_bar=progress_bar,
                                                   )
             x0 = np.concatenate((a, [offset]))
             try:
                 optimization_result = minimize(minimize_function, x0=np.reshape(x0, -1),
-                                               options=dict(maxiter=epochs))
-                fit_parameters = optimization_result.x
-                a, offset = self.unravel_parameters(fit_parameters)
-                print(a, offset)
-            except Exception as e:
-                print(f"\n\n\nError: {e}\n\n\n")
-                raise e
-            finally:
-                progress_bar.close()
-                errors_list = np.array(errors_list)
-                print(errors_list)
-                np.save(str(Path(__file__).parent / 'errors_list.npy'), errors_list)
+                                               options=dict(maxiter=self._num_epochs))
+            except StopIteration:
+                print("\nSTAHP\n")
+            progress_bar.close()
+            # fit_parameters = optimization_result.x
+            fit_parameters = parameters_list[-1]
+            a, offset = self.unravel_parameters(fit_parameters)
 
-                from matplotlib import pyplot
-                fig, ax = pyplot.subplots()
-                losses = errors_list
-                window_size = 100
-                running_average = np.convolve(losses, np.ones(window_size) / window_size, mode='valid')
-                ax.scatter(np.arange(len(losses)), losses)
-                ax.plot(np.arange(len(running_average)), running_average)
-                savepath = '/braintree/home/msch/direct-causality/plots/Rajalingham2019/space_prediction.png'
-                fig.savefig(savepath)
-                print(f"Saved to {savepath}")
-                fig.show()
+            # evaluate
+            source_behavior = self.corresponding_source_deltas(candidate, target_site=test_target, a=a, offset=offset,
+                                                               perturbation_parameters=perturbation_parameters)
+            source_deltas = self.compute_source_deltas(unperturbed_source_behavior, source_behavior,
+                                                       reference_assembly=test_target)
+            score = self._correlation(source_deltas, test_target)
+            score.attrs['predictions'] = source_deltas
+            score.attrs['target'] = test_target
+            scores.append(score)
 
-            # evaluate predictions todo
-            score = self._correlation(source, target)
-            score.attrs['predictions'] = source
-            score.attrs['target'] = target
-        scores = Score.merge(scores)
+            # plot TEMPORARY fixme
+            errors_list = np.array(errors_list)
+            print(errors_list)
+            np.save(str(Path(__file__).parent / 'errors_list.npy'), errors_list)
+
+            from matplotlib import pyplot
+            fig, ax = pyplot.subplots()
+            losses = errors_list
+            window_size = 10
+            running_average = np.convolve(losses, np.ones(window_size) / window_size, mode='valid')
+            ax.scatter(np.arange(len(losses)), losses)
+            ax.plot(np.arange(len(running_average)), running_average)
+            savepath = f'/braintree/home/msch/direct-causality/plots/Rajalingham2019/' \
+                       f'space_prediction-site{heldout_site}.png'
+            fig.savefig(savepath)
+            print(f"Saved to {savepath}")
+            fig.show()
+        scores = Score.merge(*scores)
         return scores
 
     def minimize_function(self, fit_parameters, train_target_assembly, perturbation_parameters,
-                          candidate, unperturbed_source_behavior, epochs, errors_list, progress_bar):
+                          candidate, unperturbed_source_behavior, num_epochs, errors_list, parameters_list,
+                          progress_bar):
+        parameters_list.append(fit_parameters)
         a, offset = self.unravel_parameters(fit_parameters)
-        target_site = self.sample_site(train_target_assembly)
+        site_iterations = train_target_assembly['site_iteration'].values
+        errors = []
+        for site_iteration in site_iterations:
+            target_site = train_target_assembly[{'site': [site == site_iteration
+                                                          for site in train_target_assembly['site_iteration']]}]
+            source_behavior = self.corresponding_source_deltas(candidate, target_site=target_site, a=a, offset=offset,
+                                                               perturbation_parameters=perturbation_parameters)
+            source_deltas = self.compute_source_deltas(unperturbed_source_behavior, source_behavior,
+                                                       reference_assembly=train_target_assembly)
+            # Note that some target site task deltas might be nan at this point,
+            # but this is already ignored by the error function, so we do not need to drop these values
+            site_error = self.mean_squared_error(source_deltas.squeeze('site'), target_site.squeeze('site')).values
+            errors.append(site_error)
+        error = np.mean(errors)
+        progress_bar.update(1)
+        errors_list.append(error)
+        print(len(errors_list), error)
+        if len(errors_list) >= num_epochs:
+            raise StopIteration()
+        return error
+
+    def corresponding_source_deltas(self, candidate, target_site, a, offset, perturbation_parameters):
         xyz_target = np.array([target_site[f'site_{coordinate}'] for coordinate in ['x', 'y', 'z']]).squeeze()
         xyz_source = LinearTransform()(x=xyz_target, a=a, offset=offset)
         perturbation_parameters['location'] = xyz_source[:2]  # ignore z -- todo move this to the model
         perturbation_parameters['hemisphere'] = None  # todo target_site['hemisphere']
         source_behavior = self._perform_task_perturbed(
-            candidate, perturbation_parameters=perturbation_parameters, site_number=None)
-        source_deltas = self.compute_source_deltas(unperturbed_source_behavior, source_behavior,
-                                                   reference_assembly=train_target_assembly)
-        # Note that some target site task deltas might be nan at this point,
-        # but this is already ignored by the error function, so we do not need to drop these values
-        error = self.mean_squared_error(source_deltas.squeeze('site'), target_site.squeeze('site')).values
-        progress_bar.update(1)
-        errors_list.append(error)
-        print(len(errors_list), error)
-        if len(errors_list) > epochs:
-            raise StopIteration()
-        return error
+            candidate, perturbation_parameters=perturbation_parameters, site_number=target_site['site_number'].item())
+        return source_behavior
 
     def unravel_parameters(self, fit_parameters):
         fit_parameters = np.reshape(fit_parameters, (4, 3))
@@ -507,12 +535,6 @@ class Rajalingham2019DeltaPredictionSpace(_Rajalingham2019):
             assembly=characterized, reference_assembly=reference_assembly)
         deltas = self._characterization.compute_differences(characterized)
         return deltas
-
-    def sample_site(self, assembly) -> DataAssembly:
-        site_iterations = assembly['site_iteration'].values
-        sampled_site_iteration = self._random_state.choice(site_iterations)
-        site = assembly[{'site': [site == sampled_site_iteration for site in assembly['site_iteration']]}]
-        return site
 
     def mean_squared_error(self, predicted, truth):
         assert all(predicted['task'] == truth['task'])
