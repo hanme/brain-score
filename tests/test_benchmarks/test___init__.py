@@ -1,18 +1,17 @@
 import os
+from pathlib import Path
+from typing import List, Tuple
 
 import numpy as np
 import pytest
 from PIL import Image
-from pathlib import Path
 from pytest import approx
-from typing import List, Tuple
-import xarray as xr
 
+from brainio.assemblies import BehavioralAssembly, NeuroidAssembly, PropertyAssembly
 from brainscore.benchmarks import benchmark_pool, public_benchmark_pool, evaluation_benchmark_pool, \
     engineering_benchmark_pool
 from brainscore.model_interface import BrainModel
 from tests.test_benchmarks import PrecomputedFeatures
-from brainio.assemblies import BehavioralAssembly
 
 
 class TestPoolList:
@@ -80,6 +79,23 @@ class TestPoolList:
             'dicarlo.Kar2019-ost',
             # behavior
             'dicarlo.Rajalingham2018-i2n',
+            'brendel.Geirhos2021colour-error_consistency',
+            'brendel.Geirhos2021contrast-error_consistency',
+            'brendel.Geirhos2021cueconflict-error_consistency',
+            'brendel.Geirhos2021edge-error_consistency',
+            'brendel.Geirhos2021eidolonI-error_consistency',
+            'brendel.Geirhos2021eidolonII-error_consistency',
+            'brendel.Geirhos2021eidolonIII-error_consistency',
+            'brendel.Geirhos2021falsecolour-error_consistency',
+            'brendel.Geirhos2021highpass-error_consistency',
+            'brendel.Geirhos2021lowpass-error_consistency',
+            'brendel.Geirhos2021phasescrambling-error_consistency',
+            'brendel.Geirhos2021powerequalisation-error_consistency',
+            'brendel.Geirhos2021rotation-error_consistency',
+            'brendel.Geirhos2021silhouette-error_consistency',
+            'brendel.Geirhos2021stylized-error_consistency',
+            'brendel.Geirhos2021sketch-error_consistency',
+            'brendel.Geirhos2021uniformnoise-error_consistency',
         }
 
     def test_engineering_pool(self):
@@ -87,7 +103,24 @@ class TestPoolList:
             'fei-fei.Deng2009-top1',
             'katz.BarbuMayo2019-top1',
             'dietterich.Hendrycks2019-noise-top1', 'dietterich.Hendrycks2019-blur-top1',
-            'dietterich.Hendrycks2019-weather-top1', 'dietterich.Hendrycks2019-digital-top1'
+            'dietterich.Hendrycks2019-weather-top1', 'dietterich.Hendrycks2019-digital-top1',
+            'brendel.Geirhos2021colour-top1',
+            'brendel.Geirhos2021contrast-top1',
+            'brendel.Geirhos2021cueconflict-top1',
+            'brendel.Geirhos2021edge-top1',
+            'brendel.Geirhos2021eidolonI-top1',
+            'brendel.Geirhos2021eidolonII-top1',
+            'brendel.Geirhos2021eidolonIII-top1',
+            'brendel.Geirhos2021falsecolour-top1',
+            'brendel.Geirhos2021highpass-top1',
+            'brendel.Geirhos2021lowpass-top1',
+            'brendel.Geirhos2021phasescrambling-top1',
+            'brendel.Geirhos2021powerequalisation-top1',
+            'brendel.Geirhos2021rotation-top1',
+            'brendel.Geirhos2021silhouette-top1',
+            'brendel.Geirhos2021stylized-top1',
+            'brendel.Geirhos2021sketch-top1',
+            'brendel.Geirhos2021uniformnoise-top1',
         }
 
 
@@ -227,56 +260,6 @@ class TestPrecomputed:
     def test_MajajHong2015(self, benchmark, expected):
         self.run_test(benchmark=benchmark, file='alexnet-majaj2015.private-features.12.nc', expected=expected)
 
-    def run_test(self, benchmark, file, expected):
-        benchmark = benchmark_pool[benchmark]
-        precomputed_features = Path(__file__).parent / file
-        precomputed_features = BehavioralAssembly.from_files(precomputed_features,
-                                                             stimulus_set_identifier=benchmark._assembly.stimulus_set.identifier,
-                                                             stimulus_set=benchmark._assembly.stimulus_set)
-        precomputed_features = precomputed_features.stack(presentation=['stimulus_path'])
-        precomputed_paths = list(map(lambda f: Path(f).name, precomputed_features['stimulus_path'].values))
-        # attach stimulus set meta
-        stimulus_set = benchmark._assembly.stimulus_set
-        expected_stimulus_paths = [stimulus_set.get_stimulus(image_id) for image_id in stimulus_set['stimulus_id']]
-        expected_stimulus_paths = list(map(lambda f: Path(f).name, expected_stimulus_paths))
-        assert set(precomputed_paths) == set(expected_stimulus_paths)
-        for column in stimulus_set.columns:
-            precomputed_features[column] = 'presentation', stimulus_set[column].values
-        precomputed_features = PrecomputedFeatures(precomputed_features,
-                                                   visual_degrees=10,  # doesn't matter, features are already computed
-                                                   )
-        # score
-        score = benchmark(precomputed_features).raw
-        assert score.sel(aggregation='center') == expected
-
-    @pytest.mark.memory_intense
-    @pytest.mark.private_access
-    @pytest.mark.slow
-    def test_Kar2019ost_cornet_s(self):
-        benchmark = benchmark_pool['dicarlo.Kar2019-ost']
-        precomputed_features = Path(__file__).parent / 'cornet_s-kar2019.nc'
-        precomputed_features = BehavioralAssembly.from_files(precomputed_features,
-                                                             stimulus_set_identifier=benchmark._assembly.stimulus_set.identifier,
-                                                             stimulus_set=benchmark._assembly.stimulus_set)
-        precomputed_features = PrecomputedFeatures(precomputed_features, visual_degrees=8)
-        # score
-        score = benchmark(precomputed_features).raw
-        assert score.sel(aggregation='center') == approx(.316, abs=.005)
-
-    def test_Rajalingham2018public(self):
-        benchmark = benchmark_pool['dicarlo.Rajalingham2018public-i2n']
-        # load features
-        precomputed_features = Path(__file__).parent / 'CORnetZ-rajalingham2018public.nc'
-        precomputed_features = BehavioralAssembly.from_files(precomputed_features,
-                                                             stimulus_set_identifier=benchmark._assembly.stimulus_set.identifier,
-                                                             stimulus_set=benchmark._assembly.stimulus_set)
-        precomputed_features = PrecomputedFeatures(precomputed_features,
-                                                   visual_degrees=8,  # doesn't matter, features are already computed
-                                                   )
-        # score
-        score = benchmark(precomputed_features).raw
-        assert score.sel(aggregation='center') == approx(.136923, abs=.005)
-
     @pytest.mark.memory_intense
     @pytest.mark.slow
     @pytest.mark.parametrize('benchmark, expected', [
@@ -310,6 +293,59 @@ class TestPrecomputed:
     ])
     def test_Rajalingham2020(self, benchmark, expected):
         self.run_test(benchmark=benchmark, file='alexnet-rajalingham2020-features.12.nc', expected=expected)
+
+    def run_test(self, benchmark, file, expected):
+        benchmark = benchmark_pool[benchmark]
+        precomputed_features = Path(__file__).parent / file
+        precomputed_features = NeuroidAssembly.from_files(
+            precomputed_features,
+            stimulus_set_identifier=benchmark._assembly.stimulus_set.identifier,
+            stimulus_set=None)
+        precomputed_features = precomputed_features.stack(presentation=['stimulus_path'])
+        precomputed_paths = list(map(lambda f: Path(f).name, precomputed_features['stimulus_path'].values))
+        # attach stimulus set meta
+        stimulus_set = benchmark._assembly.stimulus_set
+        expected_stimulus_paths = [stimulus_set.get_stimulus(image_id) for image_id in stimulus_set['stimulus_id']]
+        expected_stimulus_paths = list(map(lambda f: Path(f).name, expected_stimulus_paths))
+        assert set(precomputed_paths) == set(expected_stimulus_paths)
+        for column in stimulus_set.columns:
+            precomputed_features[column] = 'presentation', stimulus_set[column].values
+        precomputed_features = PrecomputedFeatures(precomputed_features,
+                                                   visual_degrees=10,  # doesn't matter, features are already computed
+                                                   )
+        # score
+        score = benchmark(precomputed_features).raw
+        assert score.sel(aggregation='center') == expected
+
+    @pytest.mark.memory_intense
+    @pytest.mark.private_access
+    @pytest.mark.slow
+    def test_Kar2019ost_cornet_s(self):
+        benchmark = benchmark_pool['dicarlo.Kar2019-ost']
+        precomputed_features = Path(__file__).parent / 'cornet_s-kar2019.nc'
+        precomputed_features = NeuroidAssembly.from_files(
+            precomputed_features,
+            stimulus_set_identifier=benchmark._assembly.stimulus_set.identifier,
+            stimulus_set=benchmark._assembly.stimulus_set)
+        precomputed_features = PrecomputedFeatures(precomputed_features, visual_degrees=8)
+        # score
+        score = benchmark(precomputed_features).raw
+        assert score.sel(aggregation='center') == approx(.316, abs=.005)
+
+    def test_Rajalingham2018public(self):
+        benchmark = benchmark_pool['dicarlo.Rajalingham2018public-i2n']
+        # load features
+        precomputed_features = Path(__file__).parent / 'CORnetZ-rajalingham2018public.nc'
+        precomputed_features = BehavioralAssembly.from_files(
+            precomputed_features,
+            stimulus_set_identifier=benchmark._assembly.stimulus_set.identifier,
+            stimulus_set=benchmark._assembly.stimulus_set)
+        precomputed_features = PrecomputedFeatures(precomputed_features,
+                                                   visual_degrees=8,  # doesn't matter, features are already computed
+                                                   )
+        # score
+        score = benchmark(precomputed_features).raw
+        assert score.sel(aggregation='center') == approx(.136923, abs=.005)
 
     @pytest.mark.memory_intense
     @pytest.mark.slow
@@ -361,8 +397,9 @@ class TestPrecomputed:
         for current_stimulus in stimulus_identifiers:
             stimulus_set = get_stimulus_set(current_stimulus)
             path = Path(__file__).parent / files[current_stimulus]
-            features = BehavioralAssembly.from_files(path, stimulus_set_identifier=stimulus_set.identifier,
-                                                     stimulus_set=stimulus_set)
+            features = PropertyAssembly.from_files(path,
+                                                   stimulus_set_identifier=stimulus_set.identifier,
+                                                   stimulus_set=stimulus_set)
             features = features.stack(presentation=['stimulus_path'])
             precomputed_features[current_stimulus] = features
             precomputed_paths = [Path(f).name for f in precomputed_features[current_stimulus]['stimulus_path'].values]
@@ -470,9 +507,49 @@ class TestVisualDegrees:
 
 class TestNumberOfTrials:
     @pytest.mark.private_access
-    @pytest.mark.parametrize('benchmark_identifier', evaluation_benchmark_pool.keys())
+    @pytest.mark.parametrize('benchmark_identifier', [
+        # V1
+        'movshon.FreemanZiemba2013.V1-pls',
+        'dicarlo.Marques2020_Ringach2002-or_bandwidth',
+        'dicarlo.Marques2020_Ringach2002-or_selective',
+        'dicarlo.Marques2020_Ringach2002-circular_variance',
+        'dicarlo.Marques2020_Ringach2002-orth_pref_ratio',
+        'dicarlo.Marques2020_Ringach2002-cv_bandwidth_ratio',
+        'dicarlo.Marques2020_DeValois1982-pref_or',
+        'dicarlo.Marques2020_Ringach2002-opr_cv_diff',
+        'dicarlo.Marques2020_Schiller1976-sf_bandwidth',
+        'dicarlo.Marques2020_Schiller1976-sf_selective',
+        'dicarlo.Marques2020_DeValois1982-peak_sf',
+        'dicarlo.Marques2020_FreemanZiemba2013-texture_sparseness',
+        'dicarlo.Marques2020_FreemanZiemba2013-texture_selectivity',
+        'dicarlo.Marques2020_FreemanZiemba2013-texture_variance_ratio',
+        'dicarlo.Marques2020_Ringach2002-modulation_ratio',
+        'dicarlo.Marques2020_Cavanaugh2002-grating_summation_field',
+        'dicarlo.Marques2020_Cavanaugh2002-surround_diameter',
+        'dicarlo.Marques2020_Cavanaugh2002-surround_suppression_index',
+        'dicarlo.Marques2020_FreemanZiemba2013-texture_modulation_index',
+        'dicarlo.Marques2020_FreemanZiemba2013-abs_texture_modulation_index',
+        'dicarlo.Marques2020_FreemanZiemba2013-max_noise',
+        'dicarlo.Marques2020_FreemanZiemba2013-max_texture',
+        'dicarlo.Marques2020_Ringach2002-max_dc',
+        # V2
+        'movshon.FreemanZiemba2013.V2-pls',
+        # V4
+        'dicarlo.MajajHong2015.V4-pls',
+        'dicarlo.Sanghavi2020.V4-pls',
+        'dicarlo.SanghaviJozwik2020.V4-pls',
+        'dicarlo.SanghaviMurty2020.V4-pls',
+        # IT
+        'dicarlo.MajajHong2015.IT-pls',
+        'dicarlo.Sanghavi2020.IT-pls',
+        'dicarlo.SanghaviJozwik2020.IT-pls',
+        'dicarlo.SanghaviMurty2020.IT-pls',
+        'dicarlo.Kar2019-ost',
+        # behavior
+        'dicarlo.Rajalingham2018-i2n',  # Geirhos2021 are single-trial, i.e. not included here
+    ])
     def test_repetitions(self, benchmark_identifier):
-        """ Tests that all evaluation benchmarks have repetitions in the stimulus_set """
+        """ Tests that benchmarks have repetitions in the stimulus_set """
         benchmark = benchmark_pool[benchmark_identifier]
 
         class AssertRepeatCandidate(BrainModel):
