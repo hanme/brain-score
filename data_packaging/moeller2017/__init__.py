@@ -1,19 +1,21 @@
-from pathlib import Path
-from os import listdir
 import itertools
 import re
+from os import listdir
+from pathlib import Path
+
 import pandas as pd
+
 import brainscore
-from brainio.stimuli import StimulusSet
 from brainio.assemblies import DataAssembly
+from brainio.stimuli import StimulusSet
 
 
 def collect_target_assembly(stimulus_class, perturbation_location):
-    '''
+    """
     Load Data from path + subselect as specified by Experiment
 
     :return: DataAssembly
-    '''
+    """
     stimulus_set = _load_stimulus_set(stimulus_class)
     training_stimuli = _load_training_stimuli()
     stimulus_set_face_patch = _load_stimulus_set_face_patch()
@@ -32,8 +34,7 @@ def collect_target_assembly(stimulus_class, perturbation_location):
 
 
 def _load_target_data(stimulus_class, perturbation_location):
-    # TODO deal with data from multiple monkeys
-    '''
+    """
     From the Results section:
     "We first stimulated in the most anterior face patch, AM, previously shown
     to contain a view-invariant representation of individual identity3."
@@ -60,7 +61,7 @@ def _load_target_data(stimulus_class, perturbation_location):
                 current_pulse_mA    = list, {0, 300}
                 object_name         = list, category name
                 source              = list, monkey number
-    '''
+    """
     # statistic for each dataset
     path = Path(__file__).parent / 'SummaryMat.xlsx'
     df = pd.read_excel(path)
@@ -68,7 +69,8 @@ def _load_target_data(stimulus_class, perturbation_location):
     # select relevant lines
     df = df.loc[(df.Stimulus_Class == stimulus_class) &
                 (df.Perturbation_Location == perturbation_location) &
-                (df.Monkey == 1)]  # TODO
+                # Note that we are only using monkey 1 here, but that is the monkey the paper most focuses on
+                (df.Monkey == 1)]
 
     # compute accuracies
     data = {'accuracies': [], 'condition': [], 'current_pulse_mA': [], 'object_name': [], 'source': []}
@@ -86,11 +88,11 @@ def _load_target_data(stimulus_class, perturbation_location):
 
 
 def _load_stimulus_set(stimulus_class):
-    '''
+    """
     Load stimuli as specified by the paper; relevant parameter: self._stimulus_class
 
     :return: StimulusSet object containing information about image path, object class and object identity
-    '''
+    """
     path = Path(__file__).parent / stimulus_class
     image_ids = listdir(path)
     object_names, object_ids = [], []
@@ -109,7 +111,7 @@ def _load_stimulus_set(stimulus_class):
 
 
 def _load_training_stimuli():
-    '''
+    """
     From Online Methods section. Behavioral training section: [...]
     "Next, we trained animals on the main task (32 faces, 6 exemplars each).
     Image selection was exactly as in the second training task except that in the sameidentity condition we
@@ -130,7 +132,7 @@ def _load_training_stimuli():
     I am ignoring the basic training for paradigm etc. before.
 
     :return: StimulusSet Object, same as 'Faces' used in Experiment 1
-    '''
+    """
     stimulus_class = 'Faces'
     path = Path(__file__).parent / stimulus_class
     image_ids = listdir(path)
@@ -145,9 +147,7 @@ def _load_training_stimuli():
 
 
 def _load_stimulus_set_face_patch():
-    # TODO make sure images are labeled face
-    # TODO remove bias in data towards non-faces
-    '''
+    """
     From Online Methods, Face patch localization section:
     "Two male rhesus macaques were trained to maintain
     fixation on a small spot for juice reward. Monkeys were scanned in a 3T TIM Trio
@@ -157,5 +157,5 @@ def _load_stimulus_set_face_patch():
     I assume just use some images for face patch localization
 
     :return: StimulusSet object, hvm images
-    '''
+    """
     return brainscore.get_stimulus_set('dicarlo.hvm')
