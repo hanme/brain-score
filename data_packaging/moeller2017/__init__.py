@@ -94,19 +94,19 @@ def _load_stimulus_set(stimulus_class):
     :return: StimulusSet object containing information about image path, object class and object identity
     """
     path = Path(__file__).parent / stimulus_class
-    image_ids = listdir(path)
+    stimulus_ids = listdir(path)
     object_names, object_ids = [], []
-    for image_id in image_ids:
-        object_ids.append(re.split(r"_", image_id)[1])
+    for stimulus_id in stimulus_ids:
+        object_ids.append(re.split(r"_", stimulus_id)[1])
         if stimulus_class == 'Objects':
             object_names.append('object')
         elif stimulus_class == 'Faces' or ''.join([c for c in object_ids[-1] if not c.isdigit()]) == 'r':
             object_names.append('face')
         else:
             object_names.append(''.join([c for c in object_ids[-1] if not c.isdigit()]))
-    stimulus_set = StimulusSet({'image_id': image_ids, 'object_name': object_names, 'object_id': object_ids})
+    stimulus_set = StimulusSet({'stimulus_id': stimulus_ids, 'object_name': object_names, 'object_id': object_ids})
     stimulus_set.identifier = 'Moeller2017-' + stimulus_class
-    stimulus_set.image_paths = {id: str(path / id) for id in image_ids}
+    stimulus_set.stimulus_paths = {id: str(path / id) for id in stimulus_ids}
     return stimulus_set
 
 
@@ -135,14 +135,14 @@ def _load_training_stimuli():
     """
     stimulus_class = 'Faces'
     path = Path(__file__).parent / stimulus_class
-    image_ids = listdir(path)
+    stimulus_ids = listdir(path)
     object_names, object_ids = [], []
-    for image_id in image_ids:
-        object_ids.append(re.split(r"_", image_id)[1])
+    for stimulus_id in stimulus_ids:
+        object_ids.append(re.split(r"_", stimulus_id)[1])
         object_names.append('face')
-    stimuli = StimulusSet({'image_id': image_ids, 'object_name': object_names, 'object_id': object_ids})
+    stimuli = StimulusSet({'stimulus_id': stimulus_ids, 'object_name': object_names, 'object_id': object_ids})
     stimuli.identifier = 'moeller2017-Faces'
-    stimuli.image_paths = {id: str(path / id) for id in image_ids}
+    stimuli.stimulus_paths = {id: str(path / id) for id in stimulus_ids}
     return stimuli
 
 

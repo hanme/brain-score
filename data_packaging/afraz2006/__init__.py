@@ -63,7 +63,7 @@ def train_test_stimuli(size_image_bank=600,
     face_paths, nonface_paths = list(sorted(face_paths)), list(sorted(nonface_paths))
     # convert to StimulusSet
     stimulus_ids = [path.stem for path in face_paths + nonface_paths]
-    image_bank = StimulusSet({'image_id': stimulus_ids,
+    image_bank = StimulusSet({'stimulus_id': stimulus_ids,
                               'image_label': [FACE_LABEL] * len(face_paths) + [NONFACE_LABEL] * len(nonface_paths)})
     image_bank.stimulus_paths = dict(zip(stimulus_ids, face_paths + nonface_paths))
     image_bank.identifier = 'faces_nonfaces'
@@ -76,7 +76,7 @@ def train_test_stimuli(size_image_bank=600,
     # choose 30 face and 60 non-face objects for testing
     logger.info(f"Splitting {number_of_test_faces} (face) + {number_of_test_nonfaces} (nonface) test images")
     test_stimuli = select_test_stimuli(image_bank, num_faces=number_of_test_faces, num_nonfaces=number_of_test_nonfaces)
-    train_stimuli = image_bank[~image_bank['image_id'].isin(test_stimuli['image_id'])]
+    train_stimuli = image_bank[~image_bank['stimulus_id'].isin(test_stimuli['stimulus_id'])]
     test_stimuli.identifier += '-test'
     train_stimuli.identifier += '-train'
     # add noise
@@ -104,12 +104,12 @@ def collect_stimuli(num_images: int, face_nonface_ratio: float = 0.5):
 
 
 def select_test_stimuli(image_bank: StimulusSet, num_faces: int, num_nonfaces: int) -> StimulusSet:
-    face_ids = image_bank['image_id'][image_bank['image_label'] == FACE_LABEL]
-    nonface_ids = image_bank['image_id'][image_bank['image_label'] == NONFACE_LABEL]
+    face_ids = image_bank['stimulus_id'][image_bank['image_label'] == FACE_LABEL]
+    nonface_ids = image_bank['stimulus_id'][image_bank['image_label'] == NONFACE_LABEL]
     random_state = RandomState(1)
     test_face_ids = random_state.choice(face_ids, size=num_faces, replace=False)
     test_nonface_ids = random_state.choice(nonface_ids, size=num_nonfaces, replace=False)
-    test_stimuli = image_bank[image_bank['image_id'].isin(np.concatenate((test_face_ids, test_nonface_ids)))]
+    test_stimuli = image_bank[image_bank['stimulus_id'].isin(np.concatenate((test_face_ids, test_nonface_ids)))]
     return test_stimuli
 
 
@@ -138,7 +138,7 @@ def make_noisy(stimuli: StimulusSet, signal_levels, faces_per_level: int, nonfac
 
         for stimulus_id in np.concatenate((face_ids, nonface_ids)):  # perturb all chosen images
             source_path = stimuli.get_stimulus(stimulus_id)
-            noisy_image_id = stimulus_id + f'-signal{signal_level}'
+            noisy_stimulus_id = stimulus_id + f'-signal{signal_level}'
             target_path = target_directory / (source_path.stem + f'-signal{signal_level}' + source_path.suffix)
             if skip_if_exist:
                 assert target_path.is_file()
@@ -153,7 +153,7 @@ def make_noisy(stimuli: StimulusSet, signal_levels, faces_per_level: int, nonfac
             assert len(image_meta) == 1
             stimulus_row = {**image_meta.iloc[0].to_dict(),
                             **{'signal_level': signal_level, 'noise_level': noise_level}}
-            stimulus_row['stimulus_id'] = noisy_image_id
+            stimulus_row['stimulus_id'] = noisy_stimulus_id
             noisy_stimuli.append(stimulus_row)
             noisy_paths.append(target_path)
 
