@@ -111,13 +111,15 @@ class _Afraz2006(BenchmarkBase):
         # We here randomly sub-select the recordings to match the number of stimulation sites in the experiment, based
         # on the assumption that we can compare trend effects even with a random sample.
         subselect = 86
-        subselected_neuroid_ids = RandomState(1).choice(recordings['neuroid_id'].values, size=subselect, replace=False)
+        random_state = RandomState(1)
+        subselected_neuroid_ids = random_state.choice(recordings['neuroid_id'].values, size=subselect, replace=False)
         recordings = recordings[{'neuroid': [neuroid_id in subselected_neuroid_ids
                                              for neuroid_id in recordings['neuroid_id'].values]}]
         stimulation_locations = np.stack((recordings['recording_x'], recordings['recording_y'])).T.tolist()
         candidate_behaviors = []
         for site, location in enumerate(tqdm(stimulation_locations, desc='stimulation locations')):
             candidate.perturb(perturbation=None, target='IT')  # reset
+            location = np.round(location, decimals=2)
             self._logger.debug(f"Stimulating at {location}")
             candidate.perturb(perturbation=BrainModel.Perturbation.microstimulation,
                               target='IT', perturbation_parameters={
@@ -142,6 +144,7 @@ class _Afraz2006(BenchmarkBase):
         psychometric_shifts = psychometric_shifts[{'site': [  # ignore nan values
             not np.isnan(face_selectivity) for face_selectivity in psychometric_shifts['face_selectivity'].values]}]
         score = self._metric(psychometric_shifts, self._assembly)
+        score.attrs['raw'] = psychometric_shifts
         return score
 
     def characterize_psychometric_shifts(self, nonstimulated_behavior, behaviors):
@@ -176,7 +179,7 @@ class _Afraz2006(BenchmarkBase):
 
     def grouped_face_responses(self, behavior):
         np.testing.assert_array_equal(behavior['choice'], ['face', 'nonface'])
-        behavior['choose_face'] = 'presentation', behavior.argmax('choice')
+        behavior['choose_face'] = 'presentation', behavior.argmax('choice').values
         face_responses = DataAssembly(behavior.argmax('choice'), coords={
             coord: (dims, values) for coord, dims, values in walk_coords(behavior['presentation'])},
                                       dims=['presentation'])

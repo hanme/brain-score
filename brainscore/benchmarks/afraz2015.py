@@ -116,6 +116,7 @@ class _Afraz2015Optogenetics(BenchmarkBase):
                                               hemisphere_recordings['tissue_y'])).T.tolist()
             for site, location in enumerate(tqdm(suppression_locations, desc='injection locations')):
                 candidate.perturb(perturbation=None, target='IT')  # reset
+                location = np.round(location, decimals=2)
                 self._logger.debug(f"Suppressing at {location}")
                 candidate.perturb(perturbation=BrainModel.Perturbation.optogenetic_suppression,
                                   target='IT', perturbation_parameters={
@@ -379,6 +380,7 @@ class _Afraz2015Muscimol(BenchmarkBase):
         candidate_behaviors = []
         for site, location in enumerate(tqdm(stimulation_locations, desc='injection locations')):
             candidate.perturb(perturbation=None, target='IT')  # reset
+            location = np.round(location, decimals=2)
             self._logger.debug(f"Injecting at {location}")
             candidate.perturb(perturbation=BrainModel.Perturbation.muscimol,
                               target='IT', perturbation_parameters={
@@ -515,8 +517,8 @@ def load_stimuli():
 
 def split_train_test(stimuli, random_state, num_training, num_testing):
     train_stimuli = stimuli.sample(n=num_training, replace=False, random_state=random_state)
-    remaining_stimuli = stimuli[~stimuli['image_id'].isin(train_stimuli['image_id'])]
+    remaining_stimuli = stimuli[~stimuli['stimulus_id'].isin(train_stimuli['stimulus_id'])]
     test_stimuli = remaining_stimuli.sample(n=num_testing, replace=False, random_state=random_state)
-    train_stimuli.identifier = stimuli.identifier + '-train'
-    test_stimuli.identifier = stimuli.identifier + '-test'
+    train_stimuli.identifier = stimuli.identifier + f'-train{num_training}'
+    test_stimuli.identifier = stimuli.identifier + f'-test{num_testing}'
     return train_stimuli, test_stimuli

@@ -83,8 +83,9 @@ class _Rajalingham2019(BenchmarkBase):
             bibtex=BIBTEX)
 
     def __call__(self, candidate: BrainModel):
-        # TODO: Both animals were previously trained on other images of other objects, and were proficient in
-        #  discriminating among over 35 arbitrarily sampled basic-level object categories
+        # "Both animals were previously trained on other images of other objects, and were proficient in
+        #  discriminating among over 35 arbitrarily sampled basic-level object categories"
+        # -- we here simplify this to providing some training stimuli to the candidate
         training_stimuli = self._training_stimuli
         candidate.start_task(task=BrainModel.Task.probabilities, fitting_stimuli=training_stimuli)
 
@@ -99,13 +100,13 @@ class _Rajalingham2019(BenchmarkBase):
 
         # silencing sessions
         bootstrap_scores = []
+        random_state = RandomState(1)
         for bootstrap in range(self._num_experiment_bootstraps):
             behaviors = [unperturbed_behavior]
             # "We varied the location of microinjections to randomly sample the ventral surface of IT
             # (from approximately + 8mm AP to approx + 20mm AP)."
             # stay between [0, 10] since that is the extent of the tissue
 
-            random_state = RandomState(1)
             injection_locations = random_state.uniform(low=0, high=10, size=(self._num_sites_per_hemisphere * 2, 2))
             injection_hemispheres = (['left'] * self._num_sites_per_hemisphere) + \
                                     (['right'] * self._num_sites_per_hemisphere)

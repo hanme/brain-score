@@ -275,7 +275,7 @@ def _experimental_benchmark_pool():
     pool['tolias.Cadena2017-mask'] = LazyLoad(ToliasCadena2017Mask)
     from .rajalingham2020 import DicarloRajalingham2020ITPLS
     pool['dicarlo.Rajalingham2020.IT-pls'] = LazyLoad(DicarloRajalingham2020ITPLS)
-    # Schrimpf et al. 2021 perturbation benchmarks
+    # Schrimpf et al. 2023 spatial & perturbation benchmarks
     ## response correlation
     from brainscore.benchmarks.majajhong2015 import DicarloMajajHong2015ITSpatialCorrelation
     pool['dicarlo.MajajHong2015.IT-spatial_correlation'] = LazyLoad(DicarloMajajHong2015ITSpatialCorrelation)
@@ -294,7 +294,7 @@ def _experimental_benchmark_pool():
         Afraz2015OptogeneticContraDeltaAccuracySignificant)
     pool['dicarlo.Afraz2015.optogenetics-ipsi_accuracy_insignificant'] = LazyLoad(
         Afraz2015OptogeneticIpsiDeltaAccuracyInsignificant)
-    pool['dicarlo.Afraz2015.optogenetics-accuracy'] = LazyLoad(
+    pool['dicarlo.Afraz2015.optogenetics-delta_accuracy'] = LazyLoad(
         Afraz2015OptogeneticOverallDeltaAccuracy)
     pool['dicarlo.Afraz2015.optogenetics-delta_accuracy_correlated'] = LazyLoad(
         Afraz2015OptogeneticDeltaAccuracyCorrelated)
