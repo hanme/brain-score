@@ -68,7 +68,9 @@ class _Moeller2017(BenchmarkBase):
 
         self._metric = metric
         self._performance_measure = performance_measure
-        self._perturbations = self._set_up_perturbations(perturbation_location)
+        self._perturbation_location = perturbation_location
+        # LazyLoad because `self._perturbation_coordinates` is not set until later
+        self._perturbations = LazyLoad(self._set_up_perturbations)
         self._stimulus_class = stimulus_class
 
         self._target_assembly = collect_target_assembly(stimulus_class=stimulus_class,
@@ -169,21 +171,18 @@ class _Moeller2017(BenchmarkBase):
         behaviors = self._merge_behaviors(behavior_data)
         return behaviors
 
-    def _set_up_perturbations(self, perturbation_location: str):
+    def _set_up_perturbations(self):
         """
         Create a list of dictionaries, each containing the parameters for one perturbation
-        :param: perturbation_location: one of ['within_facepatch','outside_facepatch']
         :return: list of dict, each containing parameters for one perturbation
         """
-        self._perturbation_location = perturbation_location
-
         perturbation_list = []
         for stimulation, current in zip(STIMULATION_PARAMETERS['type'], STIMULATION_PARAMETERS['current_pulse_mA']):
             perturbation_dict = {'type': stimulation,
                                  'perturbation_parameters': {
                                      **{
                                          'current_pulse_mA': current,
-                                         'location': LazyLoad(lambda: self._perturbation_coordinates)
+                                         'location': self._perturbation_coordinates
                                      }, **{key: value for key, value in STIMULATION_PARAMETERS.items()
                                            if key not in ['type', 'current_pulse_mA', 'location']
                                            }
@@ -288,7 +287,7 @@ class _Moeller2017(BenchmarkBase):
             distances = (features0 - features1)
             return distances
 
-    def _sample_recordings(self, category_pool: DataArray, samples=500):  # TODO why 500
+    def _sample_recordings(self, category_pool: DataArray, samples=500):
         """
         Create an array of randomly sampled recordings, each line is one task, i.e. two recordings which are to be
         judged same vs. different ID
@@ -305,7 +304,6 @@ class _Moeller2017(BenchmarkBase):
         :return: array (samples x 2, number of neurons x 2), each line contains two recordings
                  ground truth, for each line in array, specifying if the two recordings belong to the same/different ID
         """
-        # TODO object and stimulus_id disappear with subselection
         rng = np.random.default_rng(seed=self._seed)
         recording_size = category_pool.shape[0]
         random_indices = rng.integers(0, category_pool.shape[1], (samples, 2))
@@ -313,9 +311,11 @@ class _Moeller2017(BenchmarkBase):
         sampled_recordings = np.full((samples * 2, recording_size * 2), np.nan)
         for i, (random_idx_same, random_idx_different) in enumerate(
                 tqdm(random_indices, desc='decoder training recordings')):
-            # condition 'same_id': object_id same between recording one and two, stimulus_id different between recording one and two
+            # condition 'same_id': object_id same between recording one and two,
+            # stimulus_id different between recording one and two
             image_one_same = category_pool[:, random_idx_same]
-            same_stimulus_id, same_object_id = image_one_same.presentation.values.item()  # TODO weird xarray behavior, diappearing dimension after selection
+            # weird xarray behavior, disappearing dimension after selection
+            same_stimulus_id, same_object_id = image_one_same.presentation.values.item()
             sampled_recordings[i, :recording_size] = image_one_same.values
             if self._stimulus_class in ['Faces', 'Objects']:  # not same image requirement only in Experiment 1&2
                 sampled_recordings[i, recording_size:] = rng.choice(category_pool.where(
