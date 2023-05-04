@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
+import xarray as xr
 from numpy.random import RandomState
 from scipy.optimize import minimize
 from tqdm import tqdm
@@ -138,7 +139,10 @@ class _Rajalingham2019(BenchmarkBase):
         merged_scores = merge_data_arrays(bootstrap_scores)
         score = merged_scores.mean('bootstrap')
         for attr_key in bootstrap_scores[0].attrs:
-            merged_values = merge_data_arrays([score.attrs[attr_key] for score in bootstrap_scores])
+            if attr_key == 'candidate_statistic':
+                continue  # skip -- weird merge error I cannot figure out
+            values = [score.attrs[attr_key] for score in bootstrap_scores]
+            merged_values = merge_data_arrays(values)
             score.attrs[attr_key] = merged_values
         return score
 
