@@ -1,20 +1,22 @@
-from xarray import DataArray
-
-import brainscore
-from brainscore.model_interface import BrainModel
-from brainscore.benchmarks import BenchmarkBase
-from brainscore.benchmarks._neural_common import NeuralBenchmark, average_repetition
-from brainscore.metrics.ceiling import InternalConsistency, RDMConsistency
-from brainscore.metrics.rdm import RDMCrossValidated
-from brainscore.metrics.regression import CrossRegressedCorrelation, mask_regression, ScaledCrossRegressedCorrelation, \
-    pls_regression, pearsonr_correlation
-from brainscore.metrics.spatial_correlation import SpatialCorrelationSimilarity
-from brainscore.metrics.inter_individual_stats_ceiling import InterIndividualStatisticsCeiling
-from brainscore.utils import LazyLoad
 import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.spatial.distance import squareform, pdist
+from xarray import DataArray
+
+import brainscore
+from brainio.assemblies import NeuroidAssembly
+from brainscore.benchmarks import BenchmarkBase
+from brainscore.benchmarks._neural_common import NeuralBenchmark, average_repetition
+from brainscore.metrics import Score
+from brainscore.metrics.ceiling import InternalConsistency, RDMConsistency
+from brainscore.metrics.inter_individual_stats_ceiling import InterIndividualStatisticsCeiling
+from brainscore.metrics.rdm import RDMCrossValidated
+from brainscore.metrics.regression import CrossRegressedCorrelation, mask_regression, ScaledCrossRegressedCorrelation, \
+    pls_regression, pearsonr_correlation
+from brainscore.metrics.spatial_correlation import SpatialCorrelationSimilarity
+from brainscore.model_interface import BrainModel
+from brainscore.utils import LazyLoad
 
 VISUAL_DEGREES = 8
 NUMBER_OF_TRIALS = 50
@@ -103,6 +105,9 @@ def load_assembly(average_repetitions, region, access='private'):
     return assembly
 
 
+SPATIAL_BIN_SIZE_MM = .1  # .1 mm is an arbitrary choice
+
+
 class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
     def __init__(self):
         """
@@ -110,42 +115,40 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
             MajajHong2015 assembly and a candidate BrainModel
         Plots of this can be found in Figure 2 of the corresponding publication (see BIBTEX)
         """
+        self._metric = SpatialCorrelationSimilarity(similarity_function=self.inv_ks_similarity,
+                                                    bin_size_mm=SPATIAL_BIN_SIZE_MM)
+        ceiler = InterIndividualStatisticsCeiling(self._metric)
         super().__init__(identifier='dicarlo.MajajHong2015.IT-spatial_correlation',
-                         ceiling_func=lambda: InterIndividualStatisticsCeiling(
-                             SpatialCorrelationSimilarity(similarity_function=self.inv_ks_similarity, bin_size_mm=.1))(
-                             LazyLoad(self.compute_global_tissue_statistic_target)),  # .1 mm is an arbitrary choice
-                         version=0.1,
+                         ceiling_func=lambda: ceiler(LazyLoad(self.compute_global_tissue_statistic_target)),
+                         version=1,
                          parent='IT',
                          bibtex=BIBTEX)
 
-        assembly = brainscore.get_assembly('dicarlo.MajajHong2015').sel(region='IT')
-        assembly = self.squeeze_time(assembly)
-        assembly = self.tissue_update(assembly)
-
-        consistency = InternalConsistency()
-        self._neuroid_reliability = LazyLoad(lambda: consistency(assembly.transpose('presentation', 'neuroid')))
-        self._stimulus_set = assembly.stimulus_set
-        self._target_assembly = average_repetition(assembly)
-        self._metric = SpatialCorrelationSimilarity(similarity_function=self.inv_ks_similarity,
-                                                    bin_size_mm=.1)  # .1 mm is an arbitrary choice
+        self._assembly = self._load_assembly()
 
         self.bootstrap_samples = 100_000
         self.num_sample_arrs = 10  # number of simulated Utah arrays sampled from candidate model tissue
-        self._array_size_mm = (np.ptp(self._target_assembly.neuroid.tissue_x.data),  # physical size of Utah array in mm
-                               np.ptp(self._target_assembly.neuroid.tissue_y.data))
+        self._array_size_mm = (np.ptp(self._assembly['tissue_x'].values),  # physical size of Utah array in mm
+                               np.ptp(self._assembly['tissue_y'].values))
 
-    def __call__(self, candidate: BrainModel):
+    def _load_assembly(self) -> NeuroidAssembly:
+        assembly = brainscore.get_assembly('dicarlo.MajajHong2015').sel(region='IT')
+        assembly = self.squeeze_time(assembly)
+        assembly = self.tissue_update(assembly)
+        return assembly
+
+    def __call__(self, candidate: BrainModel) -> Score:
         """
         This computes the statistics, i.e. the pairwise response correlation of candidate and target, respectively and
         computes a score based on the ks similarity of the two resulting distributions
         :param candidate: BrainModel
-        :return: Score, i.e. average inverted ks similarity, for the pairwise response correlation compared to the MajajHong Assembly
+        :return: average inverted ks similarity for the pairwise response correlation compared to the MajajHong assembly
         """
         candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
                                   recording_type=BrainModel.RecordingType.exact,
                                   # "we implanted each monkey with three arrays in the left cerebral hemisphere"
                                   hemisphere=BrainModel.Hemisphere.left)
-        candidate_assembly = candidate.look_at(self._stimulus_set)
+        candidate_assembly = candidate.look_at(self._assembly.stimulus_set)
         candidate_assembly = self.squeeze_time(candidate_assembly)
         candidate_statistic = self.sample_global_tissue_statistic(candidate_assembly)
 
@@ -176,20 +179,24 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
         candidate_statistic = xr.concat(candidate_statistic_list, dim='meta')
         return candidate_statistic
 
-    def compute_global_tissue_statistic_target(self):
+    def compute_global_tissue_statistic_target(self) -> DataArray:
         """
-        :return: xr DataArray: values = correlations; coordinates: distances, source, array
+        :return: DataArray with values = correlations; coordinates: distances, source, array
         """
+        consistency = InternalConsistency()
+        neuroid_reliability = consistency(self._assembly.transpose('presentation', 'neuroid'))
+
+        average_assembly = average_repetition(self._assembly)
         target_statistic_list = []
-        for animal in sorted(list(set(self._target_assembly.neuroid.animal.data))):
-            for arr in sorted(list(set(self._target_assembly.neuroid.arr.data))):
-                sub_assembly = self._target_assembly.sel(animal=animal, arr=arr)
+        for animal in sorted(list(set(average_assembly.neuroid.animal.data))):
+            for arr in sorted(list(set(average_assembly.neuroid.arr.data))):
+                sub_assembly = average_assembly.sel(animal=animal, arr=arr)
                 bootstrap_samples_sub_assembly = int(self.bootstrap_samples * (sub_assembly.neuroid.size /
-                                                                               self._target_assembly.neuroid.size))
+                                                                               average_assembly.neuroid.size))
 
                 distances, correlations = self.sample_response_corr_vs_dist(sub_assembly,
                                                                             bootstrap_samples_sub_assembly,
-                                                                            self._neuroid_reliability)
+                                                                            neuroid_reliability)
 
                 sub_assembly_statistic = self.to_xarray(correlations, distances, source=animal, array=arr)
                 target_statistic_list.append(sub_assembly_statistic)
