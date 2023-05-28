@@ -5,7 +5,6 @@ import logging
 from pathlib import Path
 
 import numpy as np
-import xarray as xr
 from numpy.random import RandomState
 from scipy.optimize import minimize
 from tqdm import tqdm
@@ -139,11 +138,10 @@ class _Rajalingham2019(BenchmarkBase):
         merged_scores = merge_data_arrays(bootstrap_scores)
         score = merged_scores.mean('bootstrap')
         for attr_key in bootstrap_scores[0].attrs:
-            if attr_key == 'candidate_statistic':
-                continue  # skip -- weird merge error I cannot figure out
             values = [score.attrs[attr_key] for score in bootstrap_scores]
-            merged_values = merge_data_arrays(values)
-            score.attrs[attr_key] = merged_values
+            if attr_key != 'candidate_statistic':  # do not merge -- weird merge error I cannot figure out
+                values = merge_data_arrays(values)
+            score.attrs[attr_key] = values
         return score
 
     def _perform_task_unperturbed(self, candidate: BrainModel):
@@ -252,6 +250,8 @@ def Rajalingham2019SpatialCorrelationSignificant():
     def filter_global_metric(source_assembly, target_assembly):
         target_assembly = target_assembly.sel(visual_field='all')
         return metric(source_assembly, target_assembly)
+
+    filter_global_metric._metric = metric
 
     return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-spatial_correlation_significant',
                             metric=filter_global_metric)
