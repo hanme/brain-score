@@ -112,7 +112,8 @@ class _Afraz2006(BenchmarkBase):
         # on the assumption that we can compare trend effects even with a random sample.
         subselect = 86
         random_state = RandomState(1)
-        subselected_neuroid_ids = random_state.choice(recordings['neuroid_id'].values, size=subselect, replace=False)
+        neuroid_ids = sorted(recordings['neuroid_id'].values)  # sort to make sure random choice is reproducible
+        subselected_neuroid_ids = random_state.choice(neuroid_ids, size=subselect, replace=False)
         recordings = recordings[{'neuroid': [neuroid_id in subselected_neuroid_ids
                                              for neuroid_id in recordings['neuroid_id'].values]}]
         stimulation_locations = np.stack((recordings['recording_x'], recordings['recording_y'])).T.tolist()

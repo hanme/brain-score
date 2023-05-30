@@ -338,7 +338,7 @@ class _Afraz2015Muscimol(BenchmarkBase):
         # "Once trained, we tested the animals’ performance on freshly generated sets of 400 images to confirm
         #  that they could generalize the learning to novel stimuli"
         # "For muscimol experiments, because the test blocks were shorter, smaller image sets (200 images) were used."
-        self._fitting_stimuli, test_stimuli = split_train_test(gender_stimuli, random_state=RandomState(1),
+        self._fitting_stimuli, test_stimuli = split_train_test(gender_stimuli, random_state=RandomState(42),
                                                                num_training=400, num_testing=200)
         # "Face-detector sites, summarizes data shown in A (n = 6 microinjections);
         # other IT sites, micro- injections away from high-FD subregions of IT (n = 6)"
