@@ -90,6 +90,7 @@ class _Moeller2017(BenchmarkBase):
                  Score.performance = performance aggregated per experiment
                  Score.raw_performance = performance per category
         """
+        candidate.perturb(perturbation=None, target='IT')  # reset
         self._compute_perturbation_coordinates(candidate)
         decoder = self._set_up_decoder(candidate)  # TODO: to model-tools
 
@@ -113,6 +114,7 @@ class _Moeller2017(BenchmarkBase):
             behavior['stimulated'] = 'stimulation', [current_pulse_mA > 0]
             behavior = type(behavior)(behavior)  # make sure current_pulse_mA is indexed
             behaviors.append(behavior)
+        candidate.perturb(perturbation=None, target='IT')  # reset
         behaviors = merge_data_arrays(behaviors)
         # flatten
         behaviors = behaviors.reset_index('stimulation').reset_index('behavior') \
