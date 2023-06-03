@@ -137,30 +137,11 @@ class _Moeller2017(BenchmarkBase):
             coords: truth       : list of int/bool, 'same_id'==1, 'different_id'==0,
                     object_name : list of strings, category
         """
-        samples = 500  # TODO why 500
+        samples = 500
         behavior_data = []
         for object_name in set(IT_recordings.object_name.values):
             object_recordings = IT_recordings.sel(object_name=object_name)
             recordings, conditions = self._sample_recordings(object_recordings, samples=samples)
-
-            same_distance = decoder.compute_distance(recordings[np.array(conditions) == 'same_id'])
-            diff_distance = decoder.compute_distance(recordings[np.array(conditions) == 'different_id'])
-            fig, ax = pyplot.subplots()
-            ax.hist(same_distance, alpha=0.5, label='same')
-            ax.hist(diff_distance, alpha=0.5, label='diff')
-            fig.legend()
-            fig.show()
-            #
-            # same_features = recordings[np.array(conditions) == 'same_id']
-            # features0 = same_features[:, same_features.shape[1] // 2:]
-            # features1 = same_features[:, :same_features.shape[1] // 2]
-            # distance = (features0 - features1)
-            # distance_norm = zscore(distance, axis=1)
-            # fig, ax = pyplot.subplots()
-            # ax.hist(distance_norm, alpha=0.5, label='same')
-            # fig.legend()
-            # fig.show()
-
             choices = (decoder.predict(recordings) > .5).astype(int)
             behavior = DataArray(data=choices, dims='behavior',
                                  coords={'task': ('behavior', conditions),
@@ -199,7 +180,7 @@ class _Moeller2017(BenchmarkBase):
         candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
                                   recording_type=BrainModel.RecordingType.exact)
         recordings = candidate.look_at(self._training_stimuli)
-        samples = 500  # TODO why 500
+        samples = 500
 
         stimulus_set, truth = [], []
         for object_name in set(recordings.object_name.values):
@@ -222,46 +203,18 @@ class _Moeller2017(BenchmarkBase):
             assert features.shape[0] == len(labels)
             assert set(labels) == {0, 1}
             same_distance = self.compute_distance(features[labels == 1])
-            diff_distance = self.compute_distance(features[labels == 0])
-            # self.threshold = np.abs(diff_distance.mean() - same_distance.mean())  # midpoint of same/diff
-            # self.threshold = diff_distance.min()  # min diff
             self.threshold = same_distance.max()  # max same
-            # return self
-
-            fig, ax = pyplot.subplots()
-            ax.hist(same_distance, alpha=0.5, label='same')
-            ax.hist(diff_distance, alpha=0.5, label='diff')
-            ax.set_title(f"threshold={self.threshold:.2f}")
-            fig.legend()
-            fig.show()
-
             return self
 
         def predict(self, features):
             distance = self.compute_distance(features)
-            # predictions = distance < self.threshold # midpoint
-            # predictions = 1 - (distance > self.threshold)  # min diff
             predictions = distance < self.threshold  # max same
             return predictions.astype(int)
 
         def compute_distance(self, features):
-            # features_norm = zscore(features, axis=1)
-            # features_min = np.expand_dims(features.min(axis=1), 1)
-            # features_max = np.expand_dims(features.max(axis=1), 1)
-            # features_norm = (features - features_min) / (features_max - features_min)
-            # features_norm = (features - features.min()) / (features.max() - features.min())
-            features_norm = features  # no normalization
-
-            features0 = features_norm[:, features_norm.shape[1] // 2:]
-            features1 = features_norm[:, :features_norm.shape[1] // 2]
+            features0 = features[:, features.shape[1] // 2:]
+            features1 = features[:, :features.shape[1] // 2]
             distance = (features0 - features1)
-
-            # distance_min = np.expand_dims(distance.min(axis=1), 1)
-            # distance_max = np.expand_dims(distance.max(axis=1), 1)
-            # distance = (features - distance_min) / (distance_max - distance_min)
-            # distance = (distance - distance.min()) / (distance.max() - distance.min())
-            # distance = np.power(distance, 4)
-
             summed_distance = np.abs(distance).sum(1)
             return summed_distance
 
