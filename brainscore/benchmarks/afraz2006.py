@@ -166,7 +166,7 @@ class _Afraz2006(BenchmarkBase):
                                                   y=psychometric_curve.values)
                 site_midpoint = self.logistic_midpoint(site_logistic)
                 psychometric_shift = nonstimulated_signal_midpoint - site_midpoint
-            except (AssertionError, RuntimeError):  # TODO unable to fit function / find midpoint
+            except (AssertionError, RuntimeError):  # unable to fit function / find midpoint
                 psychometric_shift = 0
             psychometric_shift = DataAssembly([psychometric_shift], coords=site_coords, dims=['site'])
             psychometric_shifts.append(psychometric_shift)

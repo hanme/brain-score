@@ -129,6 +129,7 @@ class _Afraz2015Optogenetics(BenchmarkBase):
                 behavior['hemisphere'] = 'site', [hemisphere.name]
                 behavior = type(behavior)(behavior)  # make sure site is indexed
                 candidate_behaviors.append(behavior)
+        candidate.perturb(perturbation=None, target='IT')  # reset
         candidate_behaviors = merge_data_arrays(candidate_behaviors)
         recordings = merge_data_arrays(recordings)
 
@@ -306,7 +307,7 @@ def Afraz2015MuscimolDeltaAccuracyFace():
 
 
 def facenonface_difference_of_fractions(delta_accuracies, assembly_accuracies, face: bool):
-    difference_of_fractions = DifferenceOfFractions(chance_performance=50, maximum_performance=100)
+    difference_of_fractions = DifferenceOfFractions(chance_performance=.5, maximum_performance=1)
 
     baseline_accuracy_data = assembly_accuracies.attrs['baseline_accuracy_mean']
     delta_accuracy_data = assembly_accuracies.sel(condition='face' if face else 'other', aggregation='mean') \
@@ -319,7 +320,7 @@ def facenonface_difference_of_fractions(delta_accuracies, assembly_accuracies, f
         assembly1=DataAssembly([baseline_accuracy_data, perturbed_accuracy_data],
                                coords={'performance': ['unperturbed', 'perturbed']},
                                dims=['performance']),
-        assembly2=DataAssembly([baseline_accuracy_candidate * 100, perturbed_accuracy_candidate * 100],
+        assembly2=DataAssembly([baseline_accuracy_candidate, perturbed_accuracy_candidate],
                                coords={'performance': ['unperturbed', 'perturbed']},
                                dims=['performance']))
 
@@ -392,6 +393,7 @@ class _Afraz2015Muscimol(BenchmarkBase):
             behavior['site_y'] = 'site', [location[1]]
             behavior = type(behavior)(behavior)  # make sure site is indexed
             candidate_behaviors.append(behavior)
+        candidate.perturb(perturbation=None, target='IT')  # reset
         candidate_behaviors = merge_data_arrays(candidate_behaviors)
 
         # accuracies

@@ -83,7 +83,8 @@ def collect_delta_overall_accuracy():
     data.loc[data['aggregation'] == 'mean', 'aggregation'] = 'center'
 
     # package into xarray
-    assembly = DataAssembly(data['value'], coords={
+    value = data['value'] / 100  # convert from percentage
+    assembly = DataAssembly(value, coords={
         'visual_field': ('measurement', data['visual_field']),
         'condition_description': ('measurement', data['condition']),
         'aggregation': ('measurement', data['aggregation']),
@@ -136,7 +137,8 @@ def muscimol_delta_overall_accuracy():
     data.loc[data['aggregation'] == 'positive_error', 'aggregation'] = 'error'
 
     # package into xarray
-    assembly = DataAssembly(data['value'], coords={
+    value = data['value'] / 100  # convert from percentage
+    assembly = DataAssembly(value, coords={
         'monkey': ('measurement', data['monkey']),
         'condition': ('measurement', data['condition']),
         'aggregation': ('measurement', data['aggregation']),

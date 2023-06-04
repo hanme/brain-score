@@ -1,4 +1,6 @@
 import logging
+from typing import List
+
 import math
 import shutil
 from pathlib import Path
@@ -54,7 +56,7 @@ NONFACE_LABEL = 'nonface'
 
 def train_test_stimuli(size_image_bank=600,
                        number_of_test_faces=30, number_of_test_nonfaces=60,
-                       signal_levels=(0, 15, 25, 40, 50, 80),
+                       signal_levels=(.0, .15, .25, .40, .50, .80),
                        test_faces_per_level=16, test_nonfaces_per_level=16,
                        train_faces_per_level=67, train_nonfaces_per_level=67,
                        ):
@@ -113,7 +115,7 @@ def select_test_stimuli(image_bank: StimulusSet, num_faces: int, num_nonfaces: i
     return test_stimuli
 
 
-def make_noisy(stimuli: StimulusSet, signal_levels, faces_per_level: int, nonfaces_per_level: int,
+def make_noisy(stimuli: StimulusSet, signal_levels: List[float], faces_per_level: int, nonfaces_per_level: int,
                skip_if_exist=True) -> StimulusSet:
     """
     For each signal level, sample a number of face and non-face images, and alter them based on the noise level
@@ -129,7 +131,7 @@ def make_noisy(stimuli: StimulusSet, signal_levels, faces_per_level: int, nonfac
     random_state_noise = RandomState(seed=1)
 
     for signal_level in tqdm(signal_levels, desc='noise'):
-        noise_level = 1 - signal_level / 100
+        noise_level = 1 - signal_level
         # sample a number of face and non-face images per noise level
         face_ids = random_state_ids.choice(stimuli['stimulus_id'][stimuli['image_label'] == FACE_LABEL],
                                            faces_per_level, replace=False)
@@ -141,7 +143,7 @@ def make_noisy(stimuli: StimulusSet, signal_levels, faces_per_level: int, nonfac
             noisy_stimulus_id = stimulus_id + f'-signal{signal_level}'
             target_path = target_directory / (source_path.stem + f'-signal{signal_level}' + source_path.suffix)
             if skip_if_exist:
-                assert target_path.is_file()
+                assert target_path.is_file(), f"{target_path} does not exist but {target_directory} contains stimuli"
                 # if expecting skip, assume that the file was created under the exact same conditions and re-use
             else:
                 image = Image.open(source_path)
@@ -259,7 +261,8 @@ def copy_paths(paths, target_directory, skip_if_exist=True):
 def collect_assembly():
     # data extracted with https://apps.automeris.io/wpd/ on 2021-07-05, 300 color distance + manual fixes
     data = pd.read_csv(Path(__file__).parent / '100-150ms.csv')
-    data = DataAssembly(data['psychometric_shift'], coords={
+    psychometric_shifts = data['psychometric_shift'] / 100  # convert from percentage value
+    data = DataAssembly(psychometric_shifts, coords={
         'experiment_number': ('experiment', np.arange(len(data))),
         'face_selectivity': ('experiment', data['face_selectivity'])
     }, dims=['experiment'])
