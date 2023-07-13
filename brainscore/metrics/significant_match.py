@@ -106,6 +106,8 @@ class SignificantPerformanceChange(Metric):
         same_direction = np.sign(source_difference) == np.sign(expected_direction)
         score = same_direction and difference_significant
         score = Score([score], coords={'aggregation': ['center']}, dims=['aggregation'])
+        score.attrs['accuracy1'] = accuracy1
+        score.attrs['accuracy2'] = accuracy2
         score.attrs['delta_accuracy'] = source_difference
         return score
 
