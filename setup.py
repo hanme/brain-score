@@ -17,6 +17,7 @@ with open('README.md') as readme_file:
 requirements = [
     "numpy>=1.17",
     "brainio @ git+https://github.com/brain-score/brainio",
+    "importlib-metadata<5",  # workaround to https://github.com/brain-score/brainio/issues/28
     "scikit-learn<0.24",  # 0.24 breaks pls regression
     "scipy",
     "pingouin",
@@ -38,7 +39,7 @@ requirements = [
 
 setup(
     name='brain-score',
-    version='0.2',
+    version='1.3',
     description="A framework for the quantitative comparison of mindlike systems.",
     long_description=readme,
     author="Brain-Score Team",
@@ -51,10 +52,13 @@ setup(
     zip_safe=False,
     keywords='brain-score',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
+        'Intended Audience :: Education',
+        'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
+        'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
     ],
     test_suite='tests',

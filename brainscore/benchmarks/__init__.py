@@ -19,7 +19,7 @@ class Benchmark(ABC):
     Standard Benchmark interface defining the method interfaces.
     """
 
-    def __call__(self, candidate: BrainModel):
+    def __call__(self, candidate: BrainModel) -> Score:
         """
         Evaluate a candidate `BrainModel` and return a :class:`~brainscore.metrics.Score` denoting the brain-likeness of
         the model under this benchmark. Typically this involves reproducing the experiment on the model and then
@@ -38,7 +38,7 @@ class Benchmark(ABC):
         raise NotImplementedError()
 
     @property
-    def bibtex(self):
+    def bibtex(self) -> str:
         """
         bibtex string to build the reference.
         Should include an `url` to build a proper link.
@@ -46,7 +46,7 @@ class Benchmark(ABC):
         raise NotImplementedError()
 
     @property
-    def identifier(self):
+    def identifier(self) -> str:
         """
         Unique identifier for this benchmark.
         Standard format is `<data identifier>-<metric identifier>`, e.g. `dicarlo.Rajalingham2018-i2n`.
@@ -56,7 +56,7 @@ class Benchmark(ABC):
         raise NotImplementedError()
 
     @property
-    def version(self):
+    def version(self) -> str:
         """
         Optional, but strongly encouraged.
 
@@ -66,7 +66,7 @@ class Benchmark(ABC):
         raise NotImplementedError()
 
     @property
-    def ceiling(self):
+    def ceiling(self) -> Score:
         """
         The ceiling of this benchmark. Scores need to be normalized by this value.
         Typically this represents the signal in the data and how well we expect the best possible model to score.
@@ -250,6 +250,11 @@ def _engineering_benchmark_pool():
             # use lambda parameter-binding to avoid `benchmark_ctr` being re-assigned in the next loop iteration
             lambda benchmark_ctr=benchmark_ctr: benchmark_ctr())
 
+    # Hermann2020
+    from .hermann2020 import Hermann2020cueconflictShapeBias, Hermann2020cueconflictShapeMatch
+    pool['kornblith.Hermann2020cueconflict-shape_bias'] = LazyLoad(Hermann2020cueconflictShapeBias)
+    pool['kornblith.Hermann2020cueconflict-shape_match'] = LazyLoad(Hermann2020cueconflictShapeMatch)
+    
     return pool
 
 
@@ -320,6 +325,20 @@ def _experimental_benchmark_pool():
     pool['dicarlo.Rajalingham2019-delta_prediction_task'] = LazyLoad(Rajalingham2019DeltaPredictionTask)
     pool['dicarlo.Rajalingham2019-delta_prediction_object'] = LazyLoad(Rajalingham2019DeltaPredictionObject)
     pool['dicarlo.Rajalingham2019-delta_prediction_space'] = LazyLoad(Rajalingham2019DeltaPredictionSpace)
+
+    # Islam 2021:
+    from .islam2021 import Islam2021Dimensionality_V1_Shape, Islam2021Dimensionality_V1_Texture, \
+        Islam2021Dimensionality_V2_Shape, Islam2021Dimensionality_V2_Texture, \
+        Islam2021Dimensionality_V4_Shape, Islam2021Dimensionality_V4_Texture, \
+        Islam2021Dimensionality_IT_Shape, Islam2021Dimensionality_IT_Texture
+    pool['Islam2021-shape_v1_dimensionality'] = LazyLoad(Islam2021Dimensionality_V1_Shape)
+    pool['Islam2021-texture_v1_dimensionality'] = LazyLoad(Islam2021Dimensionality_V1_Texture)
+    pool['Islam2021-shape_v2_dimensionality'] = LazyLoad(Islam2021Dimensionality_V2_Shape)
+    pool['Islam2021-texture_v2_dimensionality'] = LazyLoad(Islam2021Dimensionality_V2_Texture)
+    pool['Islam2021-shape_v4_dimensionality'] = LazyLoad(Islam2021Dimensionality_V4_Shape)
+    pool['Islam2021-texture_v4_dimensionality'] = LazyLoad(Islam2021Dimensionality_V4_Texture)
+    pool['Islam2021-shape_it_dimensionality'] = LazyLoad(Islam2021Dimensionality_IT_Shape)
+    pool['Islam2021-texture_it_dimensionality'] = LazyLoad(Islam2021Dimensionality_IT_Texture)
 
     return pool
 

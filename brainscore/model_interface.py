@@ -3,10 +3,9 @@ The :class:`~brainscore.model_interface.BrainModel` interface is the central com
 between benchmarks and models.
 """
 
-from enum import Enum
+from typing import List, Tuple, Union
 
 from brainio.stimuli import StimulusSet
-from typing import List, Tuple, Union
 
 
 class BrainModel:
@@ -14,26 +13,6 @@ class BrainModel:
     The BrainModel interface defines an API for models to follow.
     Benchmarks will use this interface to treat models as an experimental subject
     without needing to know about the details of the model implementation.
-    """
-
-    RecordingTarget = Enum('RecordingTarget', " ".join(['V1', 'V2', 'V4', 'IT']))
-    """
-    location to record from
-    """
-
-    Hemisphere = Enum('Hemisphere', " ".join(['left', 'right']))
-    """
-    the hemisphere to record in
-    """
-
-    RecordingType = Enum('RecordingTarget', " ".join(['exact', 'fMRI', 'UtahArray']))
-    """
-    technique to record with
-    """
-
-    Task = Enum('Task', " ".join(['passive', 'probabilities', 'label']))
-    """
-    task to perform
     """
 
     @property
@@ -58,19 +37,90 @@ class BrainModel:
         """
         raise NotImplementedError()
 
-    def look_at(self, stimuli: Union[StimulusSet, List[str]], number_of_trials=1):
-        """
-        Digest a set of stimuli and return requested outputs. Which outputs to return is instructed by the
-        :meth:`~brainscore.model_interface.BrainMode.start_task` and
-        :meth:`~brainscore.model_interface.BrainModel.start_recording` methods.
+    class Task:
+        """ task to perform """
 
-        :param stimuli: A set of stimuli, passed as either a :class:`~brainio.stimuli.StimulusSet`
-            or a list of image file paths
-        :param number_of_trials: The number of repeated trials of the stimuli that the model should average over.
-            E.g. 10 or 35. Non-stochastic models can likely ignore this parameter.
-        :return: recordings or task behaviors as instructed
+        passive = 'passive'
         """
-        raise NotImplementedError()
+        Passive fixation, i.e. do not perform any task, but fixate on the center of the screen.
+        Does not output anything, but can be useful to fully specify the experimental setup.
+
+        Example:
+
+        Setting up passive fixation with `start_task(BrainModel.Task.passive)` and calling `look_at(...)` could output
+
+        .. code-block:: python
+
+           None
+        """
+
+        label = 'label'
+        """ 
+        Predict the label for each stimulus. 
+        Output a :class:`~brainio.assemblies.BehavioralAssembly` with labels as the values.
+
+        The labeling domain can be specified in the second argument, e.g. `'imagenet'` for 1,000 ImageNet synsets, 
+        or an explicit list of label strings. The model choices must be part of the labeling domain.
+
+        Example:
+
+        Setting up a labeling task for ImageNet synsets with `start_task(BrainModel.Task.label, 'imagenet')` 
+        and calling `look_at(...)` could output 
+
+        .. code-block:: python
+
+           <xarray.BehavioralAssembly (presentation: 3, choice: 1)>
+                array([['n02107574'], ['n02123045'], ['n02804414']]), # the ImageNet synsets
+                Coordinates:
+                  * presentation  (presentation) MultiIndex
+                  - stimulus_id   (presentation) object 'hash1' 'hash2' 'hash3'
+                  - stimulus_path (presentation) object '/home/me/.brainio/demo_stimuli/image1.png' ...
+                  - logit         (presentation) int64 239 282 432
+                  - synset        (presentation) object 'n02107574' 'n02123045' 'n02804414'
+
+        Example:
+
+        Setting up a labeling task for 2 custom labels with `start_task(BrainModel.Task.label, ['dog', 'cat'])` 
+        and calling `look_at(...)` could output 
+
+        .. code-block:: python
+
+           <xarray.BehavioralAssembly (presentation: 3, choice: 1)>
+                array([['dog'], ['cat'], ['cat']]), # the labels
+                Coordinates:
+                  * presentation  (presentation) MultiIndex
+                  - stimulus_id   (presentation) object 'hash1' 'hash2' 'hash3'
+                  - stimulus_path (presentation) object '/home/me/.brainio/demo_stimuli/image1.png' ...
+        """
+
+        probabilities = 'probabilities'
+        """ 
+        Predict the per-label probabilities for each stimulus. 
+        Output a :class:`~brainio.assemblies.BehavioralAssembly` with probabilities as the values.
+
+        The model must be supplied with `fitting_stimuli` in the second argument which allow it to train a readout 
+        for a particular set of labels and image distribution. 
+        The `fitting_stimuli` are a :class:`~brainio.stimuli.StimulusSet` and must include an `image_label` column 
+        which is used as the labels to fit to.
+
+        Example:
+
+        Setting up a probabilities task `start_task(BrainModel.Task.probabilities, <fitting_stimuli>)` 
+        (where `fitting_stimuli` includes 5 distinct labels)
+        and calling `look_at(<test_stimuli>)` could output 
+
+        .. code-block:: python
+
+           <xarray.BehavioralAssembly (presentation: 3, choice: 5)>
+                array([[0.9 0.1 0.0 0.0 0.0]
+                       [0.0 0.0 0.8 0.0 0.2]
+                       [0.0 0.0 0.0 1.0 0.0]]), # the probabilities
+                Coordinates:
+                  * presentation  (presentation) MultiIndex
+                  - stimulus_id   (presentation) object 'hash1' 'hash2' 'hash3'
+                  - stimulus_path (presentation) object '/home/me/.brainio/demo_stimuli/image1.png' ...
+                  - choice        (choice) object 'dog' 'cat' 'chair' 'flower' 'plane'
+        """
 
     def start_task(self, task: Task, fitting_stimuli=None):
         """
@@ -83,6 +133,23 @@ class BrainModel:
                                 None when the task is passive viewing.
         """
         raise NotImplementedError()
+
+    class RecordingTarget:
+        """ location to record from """
+        V1 = 'V1'
+        V2 = 'V2'
+        V4 = 'V4'
+        IT = 'IT'
+
+    Hemisphere = Enum('Hemisphere', " ".join(['left', 'right']))
+    """
+    the hemisphere to record in
+    """
+
+    RecordingType = Enum('RecordingTarget', " ".join(['exact', 'fMRI', 'UtahArray']))
+    """
+    technique to record with
+    """
 
     def start_recording(self,
                         recording_target: RecordingTarget,
@@ -123,5 +190,19 @@ class BrainModel:
         :param target: what to perturb, e.g. 'IT', or a specific neuroid id
         :param perturbation_parameters: details on the exact perturbation in a dictionary,
                 e.g. {'amount_microliter': 10, 'location': TODO} for muscimol.
+        """
+        raise NotImplementedError()
+
+    def look_at(self, stimuli: Union[StimulusSet, List[str]], number_of_trials=1):
+        """
+        Digest a set of stimuli and return requested outputs. Which outputs to return is instructed by the
+        :meth:`~brainscore.model_interface.BrainMode.start_task` and
+        :meth:`~brainscore.model_interface.BrainModel.start_recording` methods.
+
+        :param stimuli: A set of stimuli, passed as either a :class:`~brainio.stimuli.StimulusSet`
+            or a list of image file paths
+        :param number_of_trials: The number of repeated trials of the stimuli that the model should average over.
+            E.g. 10 or 35. Non-stochastic models can likely ignore this parameter.
+        :return: recordings or task behaviors as instructed
         """
         raise NotImplementedError()
