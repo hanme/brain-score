@@ -1,9 +1,10 @@
+from typing import Tuple
+
 import numpy as np
-from brainio.assemblies import merge_data_arrays, DataArray, DataAssembly
-from matplotlib import pyplot
 from sklearn.svm import SVC
 from tqdm import tqdm
 
+from brainio.assemblies import merge_data_arrays, DataArray, DataAssembly
 from brainscore.benchmarks import BenchmarkBase
 from brainscore.metrics import Metric
 from brainscore.metrics.accuracy import Accuracy
@@ -98,7 +99,6 @@ class _Moeller2017(BenchmarkBase):
                                   recording_type=BrainModel.RecordingType.exact,
                                   # "the nonstimulated right hemisphere."
                                   hemisphere=BrainModel.Hemisphere.left)
-        candidate_performance = []
         behaviors = []
         for perturbation in self._perturbations:
             candidate.perturb(perturbation=None, target='IT')  # reset
@@ -304,7 +304,7 @@ class _Moeller2017(BenchmarkBase):
         face_selectivities_voxel = self._determine_face_selectivity(recordings)
 
         # Determine location
-        if self._perturbation_location == 'within_facepatch':
+        if self._perturbation_location == 'within_facepatch':  # "Electrical stimulation of face patch AM"
             x, y = self._get_purity_center(face_selectivities_voxel)
         elif self._perturbation_location == 'outside_facepatch':
             x, y = self._sample_outside_face_patch(face_selectivities_voxel)
@@ -314,7 +314,7 @@ class _Moeller2017(BenchmarkBase):
         self._perturbation_coordinates = (x, y)
 
     @staticmethod
-    def _get_purity_center(selectivity_assembly: DataAssembly, radius=1):
+    def _get_purity_center(selectivity_assembly: DataAssembly, radius: int = 1) -> Tuple[int, int]:
         """
         Adapted from Lee et al. 2020.
         Computes the voxel of the selectivity map with the highest purity
@@ -325,7 +325,7 @@ class _Moeller2017(BenchmarkBase):
                         recording_y: voxel coordinate
                   'category_name'
         :param: radius (scalar): radius in mm of the circle in which to consider units
-        :return: (int,int) location of highest purity
+        :return: location of highest purity
         """
 
         def get_purity(center_x, center_y):
