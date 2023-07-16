@@ -24,11 +24,6 @@ class BrainModel:
         """
         raise NotImplementedError()
 
-    Perturbation = Enum('Perturbation', " ".join(['muscimol', 'microstimulation', 'optogenetic_suppression']))
-    """
-    perturbation types
-    """
-
     def visual_degrees(self) -> int:
         """
         The visual degrees this model covers as a single scalar.
@@ -141,15 +136,16 @@ class BrainModel:
         V4 = 'V4'
         IT = 'IT'
 
-    Hemisphere = Enum('Hemisphere', " ".join(['left', 'right']))
-    """
-    the hemisphere to record in
-    """
+    class Hemisphere:
+        """ the hemisphere to record in """
+        left = 'left'
+        left = 'right'
 
-    RecordingType = Enum('RecordingTarget', " ".join(['exact', 'fMRI', 'UtahArray']))
-    """
-    technique to record with
-    """
+    class RecordingType:
+        """ technique to record with """
+        exact = 'exact'
+        fMRI = 'fMRI'
+        utahArray = 'utahArray'
 
     def start_recording(self,
                         recording_target: RecordingTarget,
@@ -183,13 +179,22 @@ class BrainModel:
         """
         raise NotImplementedError()
 
-    def perturb(self, perturbation: Perturbation, target, perturbation_parameters=None):
+    class Perturbation:
+        """ perturbation types """
+        muscimol = 'muscimol'
+        """ `perturbation_parameters` should include `location` (in millimeter), `amount_microliter` (milliliter) """
+        microstimulation = 'microstimulation'
+        """ `perturbation_parameters` should include `location` (in millimeter), `current_pulse_mA`, `pulse_rate_Hz` """
+        optogenetic_suppression = 'optogenetic_suppression'
+        """ `perturbation_parameters` should include `location` (in millimeter), `fiber_output_power_mW` """
+
+    def perturb(self, perturbation: Perturbation, target: Union[RecordingTarget, str], perturbation_parameters=None):
         """
         :param perturbation: the kind of perturbation, e.g. 'muscimol', 'optogenetics', 'microstimulation'.
             When passed `None`, all perturbations are cleared.
         :param target: what to perturb, e.g. 'IT', or a specific neuroid id
         :param perturbation_parameters: details on the exact perturbation in a dictionary,
-                e.g. {'amount_microliter': 10, 'location': TODO} for muscimol.
+                e.g. {'amount_microliter': 10, 'location': (6, 2)} for muscimol.
         """
         raise NotImplementedError()
 
