@@ -1,10 +1,11 @@
 from typing import Tuple
 
 import numpy as np
-from sklearn.svm import SVC
+from numpy.random import RandomState
 from tqdm import tqdm
 
-from brainio.assemblies import merge_data_arrays, DataArray, DataAssembly
+from brainio.assemblies import merge_data_arrays, DataAssembly
+from brainio.stimuli import StimulusSet
 from brainscore.benchmarks import BenchmarkBase
 from brainscore.metrics import Metric
 from brainscore.metrics.accuracy import Accuracy
@@ -76,37 +77,62 @@ class _Moeller2017(BenchmarkBase):
 
         self._target_assembly = collect_target_assembly(stimulus_class=stimulus_class,
                                                         perturbation_location=perturbation_location)
-        self._stimulus_set = self._target_assembly.stimulus_set
+        self._test_set = self._make_same_different_pairs(
+            self._target_assembly.stimulus_set, include_label=True)
         self._stimulus_set_face_patch = self._target_assembly.stimulus_set_face_patch
-        self._training_stimuli = self._target_assembly.training_stimuli
+        self._training_trials = self._make_same_different_pairs(
+            self._target_assembly.training_stimuli, include_label=True)
 
-        self._seed = 123
+    def _make_same_different_pairs(self, stimulus_set: StimulusSet, num_trials: int = 500,
+                                   include_label: bool = False) -> StimulusSet:
+        # "In the main experiment (Experiment 1; 32 faces, 6 exemplars), for each trial we randomly selected one image
+        # from all 192 different images as the first cue. The second cue was drawn either from all images showing a
+        # different identity as the first cue (one of 186 images) or from all images showing the same identity
+        # (one of 6 images)."
+        # Not obvious how many stimuli were presented in an experiment though. We'll conservatively assume 500 although
+        # the actual number might be closer to ~100 ("Single-unit responses [...] in response to 80 stimuli",
+        # "population decoding of individual identity for a set of 128 stimuli")
+        rng = RandomState(0)
+        stimulus_set = stimulus_set.sort_values(by='stimulus_id')  # sort to make sure choice is reproducible
+        trials, labels = [], []
+        while len(trials) < num_trials:
+            first_cue = stimulus_set.iloc[rng.choice(len(stimulus_set))]
+            same_task = rng.choice([True, False])
+            if same_task:  # choose from images of the same identity, but not the exact same one
+                second_cue_choices = stimulus_set[(stimulus_set['object_id'] == first_cue['object_id']) &
+                                                  (stimulus_set['stimulus_id'] != first_cue['stimulus_id'])]
+            else:  # choose from images of different identities
+                second_cue_choices = stimulus_set[stimulus_set['object_id'] != first_cue['object_id']]
+            second_cue = second_cue_choices.iloc[rng.choice(len(second_cue_choices))]
+            trials.append((first_cue, second_cue))
+            labels.append('same' if same_task else 'diff')
+
+        pair_stimuli = [stimulus for trial_pair in trials for stimulus in trial_pair]
+        pair_labels = [stimulus_label for label in labels for stimulus_label in [label] * 2]
+        trial_stimulus_set = StimulusSet(pair_stimuli)
+        trial_stimulus_set['trial'] = [num for num in range(len(trial_stimulus_set) // 2) for _ in range(2)]
+        trial_stimulus_set['trial_cue'] = [num % 2 for num in range(len(trial_stimulus_set))]
+        if include_label:
+            trial_stimulus_set['label'] = pair_labels
+        trial_stimulus_set.stimulus_paths = stimulus_set.stimulus_paths
+        trial_stimulus_set.identifier = stimulus_set.identifier + '-trials'
+        return trial_stimulus_set
 
     def __call__(self, candidate: BrainModel):
-        """
-        Score model on chosen identification task
-        :param candidate: BrainModel
-        :return: Score.data = score per experiment
-                 Score.raw =  score per category
-                 Score.performance = performance aggregated per experiment
-                 Score.raw_performance = performance per category
-        """
         candidate.perturb(perturbation=None, target='IT')  # reset
         self._compute_perturbation_coordinates(candidate)
-        decoder = self._set_up_decoder(candidate)  # TODO: to model-tools
+        # The Moeller et al. 2017 paper used a rather elaborate training paradigm
+        # (passive fixation -> "choice" task with only the correct target -> 1 tomato vs 5 grapes classification
+        # -> 5 human faces same-different -> 32 faces -> non-face objects).
+        # We here simplify to just presenting
+        candidate.start_task(BrainModel.Task.same_different, fitting_stimuli=self._training_trials)
 
-        candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
-                                  recording_type=BrainModel.RecordingType.exact,
-                                  # "the nonstimulated right hemisphere."
-                                  hemisphere=BrainModel.Hemisphere.left)
         behaviors = []
         for perturbation in self._perturbations:
             candidate.perturb(perturbation=None, target='IT')  # reset
             candidate.perturb(perturbation=perturbation['type'], target='IT',
                               perturbation_parameters=perturbation['perturbation_parameters'])
-
-            recordings = candidate.look_at(self._stimulus_set)
-            behavior = self._compute_behavior(recordings, decoder)  # TODO: move to model-tools
+            behavior = candidate.look_at(self._test_set)
 
             current_pulse_mA = perturbation['perturbation_parameters']['current_pulse_mA']
             behavior = behavior.expand_dims('stimulation')
@@ -117,42 +143,12 @@ class _Moeller2017(BenchmarkBase):
         candidate.perturb(perturbation=None, target='IT')  # reset
         behaviors = merge_data_arrays(behaviors)
         # flatten
-        behaviors = behaviors.reset_index('stimulation').reset_index('behavior') \
-            .stack(condition=['stimulation', 'behavior'])
+        behaviors = behaviors.reset_index('stimulation').reset_index('presentation') \
+            .stack(condition=['stimulation', 'presentation'])
         behaviors = type(behaviors)(behaviors)
 
         score = self._metric(behaviors, self._target_assembly)
         return score
-
-    def _compute_behavior(self, IT_recordings: DataArray, decoder):
-        """
-        Compute behavior of given IT recordings in a identity matching task,
-            i.e. given two images of the same category judge if they depict an object of same or different identity
-        :param IT_recordings:
-            values: IT activation vectors
-            dims:   object_name : list of strings, category
-            coords: object_ID   : list of strings, object identity
-                    stimulus_id    : list of strings, object + view angle identity
-        :return: behaviors DataAssembly
-            values: choice
-            dims:   condition   : list of strings, ['same_id == 1, 'different_id'==0],
-            coords: truth       : list of int/bool, 'same_id'==1, 'different_id'==0,
-                    object_name : list of strings, category
-        """
-        samples = 500
-        behavior_data = []
-        for object_name in set(IT_recordings.object_name.values):
-            object_recordings = IT_recordings.sel(object_name=object_name)
-            recordings, conditions = self._sample_recordings(object_recordings, samples=samples)
-            choices = (decoder.predict(recordings) > .5).astype(int)
-            behavior = DataArray(data=choices, dims='behavior',
-                                 coords={'task': ('behavior', conditions),
-                                         'truth': ('behavior', (np.array(conditions) == 'same_id').astype(int)),
-                                         'object_name': ('behavior', [object_name] * samples * 2)})
-            behavior_data.append(behavior)
-
-        behaviors = self._merge_behaviors(behavior_data)
-        return behaviors
 
     def _set_up_perturbations(self):
         """
@@ -173,124 +169,6 @@ class _Moeller2017(BenchmarkBase):
 
             perturbation_list.append(perturbation_dict)
         return perturbation_list
-
-    def _set_up_decoder(self, candidate: BrainModel):
-        """
-        Fit a logistic regression between the recordings of the training stimuli and the ground truth
-        :return: trained linear regressor
-        """
-        candidate.start_recording(recording_target='IT', time_bins=[(70, 170)],
-                                  recording_type=BrainModel.RecordingType.exact)
-        recordings = candidate.look_at(self._training_stimuli)
-        samples = 500
-
-        stimulus_set, truth = [], []
-        for object_name in set(recordings.object_name.values):
-            recordings_category, conditions = self._sample_recordings(recordings.sel(object_name=object_name),
-                                                                      samples=samples)
-            stimulus_set.append(recordings_category)
-            truth += list((np.array(conditions) == 'same_id').astype(int))
-        stimulus_set = np.vstack(stimulus_set)
-
-        # return self.SVMDifferenceDecoder().fit(stimulus_set, np.array(truth))
-        return self.ThresholdDecoder().fit(stimulus_set, np.array(truth))
-        # return LogisticRegression(random_state=self._seed,
-        #                           solver='liblinear').fit(stimulus_set, truth)
-
-    class ThresholdDecoder:
-        def __init__(self):
-            self.threshold = None
-
-        def fit(self, features, labels):
-            assert features.shape[0] == len(labels)
-            assert set(labels) == {0, 1}
-            same_distance = self.compute_distance(features[labels == 1])
-            self.threshold = same_distance.max()  # max same
-            return self
-
-        def predict(self, features):
-            distance = self.compute_distance(features)
-            predictions = distance < self.threshold  # max same
-            return predictions.astype(int)
-
-        def compute_distance(self, features):
-            features0 = features[:, features.shape[1] // 2:]
-            features1 = features[:, :features.shape[1] // 2]
-            distance = (features0 - features1)
-            summed_distance = np.abs(distance).sum(1)
-            return summed_distance
-
-    class SVMDifferenceDecoder:
-        def __init__(self):
-            self.svm = SVC()
-
-        def fit(self, features, labels):
-            assert features.shape[0] == len(labels)
-            assert set(labels) == {0, 1}
-            distances = self.compute_distance(features)
-            self.svm.fit(distances, labels)
-            return self
-
-        def predict(self, features):
-            distances = self.compute_distance(features)
-            predictions = self.svm.predict(distances)
-            return predictions.astype(int)
-
-        def compute_distance(self, features):
-            features0 = features[:, features.shape[1] // 2:]
-            features1 = features[:, :features.shape[1] // 2]
-            distances = (features0 - features1)
-            return distances
-
-    def _sample_recordings(self, category_pool: DataArray, samples=500):
-        """
-        Create an array of randomly sampled recordings, each line is one task, i.e. two recordings which are to be
-        judged same vs. different ID
-
-        From Online Methods: Visual Stimuli & Behavioral Tasks section:
-        " By presenting faces of the same identity with six different expressions in image set 1
-        and objects of the same identity at three different view angles in image set 2, we
-        ensured that even in the match condition we presented two different images"
-        -> for Faces & Objects, the same condition excludes the same image as stimulus. For
-            all other Experiments, same means the exact same !note: decoder only trained on Faces
-
-        :param category_pool: Model IT recordings, assumed be from one category only
-        :param samples: int: number of samples per same/different condition
-        :return: array (samples x 2, number of neurons x 2), each line contains two recordings
-                 ground truth, for each line in array, specifying if the two recordings belong to the same/different ID
-        """
-        rng = np.random.default_rng(seed=self._seed)
-        recording_size = category_pool.shape[0]
-        random_indices = rng.integers(0, category_pool.shape[1], (samples, 2))
-
-        sampled_recordings = np.full((samples * 2, recording_size * 2), np.nan)
-        for i, (random_idx_same, random_idx_different) in enumerate(
-                tqdm(random_indices, desc='decoder training recordings')):
-            # condition 'same_id': object_id same between recording one and two,
-            # stimulus_id different between recording one and two
-            image_one_same = category_pool[:, random_idx_same]
-            # weird xarray behavior, disappearing dimension after selection
-            same_stimulus_id, same_object_id = image_one_same.presentation.values.item()
-            sampled_recordings[i, :recording_size] = image_one_same.values
-            if self._stimulus_class in ['Faces', 'Objects']:  # not same image requirement only in Experiment 1&2
-                sampled_recordings[i, recording_size:] = rng.choice(category_pool.where(
-                    (category_pool.object_id == same_object_id) &
-                    (category_pool.stimulus_id != same_stimulus_id), drop=True).T)
-            else:
-                sampled_recordings[i, recording_size:] = image_one_same.values
-                # <=> rng.choice(category_pool.where((category_pool.object_id == same_object_id), drop=True).T)
-                # because there is only one image per object_id
-
-            # condition 'different_id': object_id different between recording one and two
-            image_one_diff = category_pool[:, random_idx_different]
-            diff_object_id = image_one_diff.presentation.values.item()[
-                1]  # TODO weird xarray behavior, diappearing dimension after selection
-            sampled_recordings[i + samples, :recording_size] = image_one_diff.values
-            sampled_recordings[i + samples, recording_size:] = rng.choice(category_pool.where(
-                category_pool.object_id != diff_object_id, drop=True).T)
-
-        conditions = ['same_id'] * samples + ['different_id'] * samples
-        return sampled_recordings, conditions
 
     def _compute_perturbation_coordinates(self, candidate: BrainModel):
         """
@@ -376,7 +254,6 @@ class _Moeller2017(BenchmarkBase):
 
     def _sample_outside_face_patch(self, selectivity_assembly: DataAssembly, radius=2):
         """
-        # TODO exclude borders from being sampled?
         Sample one voxel outside of face patch
         1. make a list of voxels where neither the voxel nor its close neighbors are in a face patch
         2. randomly sample from list
@@ -392,9 +269,9 @@ class _Moeller2017(BenchmarkBase):
                 np.square(not_selective_voxels['recording_x'].values - recording_x) +
                 np.square(not_selective_voxels['recording_y'].values - recording_y)) < radius)[0]
             if np.all(not_selective_voxels[inside_radius].values < DPRIME_THRESHOLD_FACE_PATCH):
-                voxels.append(voxel)  # TODO safety if there is tissue where this does not hold
+                voxels.append(voxel)  # safety if there is tissue where this does not hold
 
-        rng = np.random.default_rng(seed=self._seed)
+        rng = np.random.default_rng(seed=1)
         random_idx = rng.integers(0, len(voxels))  # choice removes meta data i.e. location
         x, y = voxels[random_idx].voxel_id.item()[1:]
         return x, y

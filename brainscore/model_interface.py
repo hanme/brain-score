@@ -117,6 +117,20 @@ class BrainModel:
                   - choice        (choice) object 'dog' 'cat' 'chair' 'flower' 'plane'
         """
 
+        same_different = 'same_different'
+        """ 
+        in `look_at`, subsequent stimuli will be treated as one stimulus-pair
+        
+        stimuli include
+        * trial: unique number for each trial, i.e. pairs of 2 stimuli
+        * trial_cue: a unique number within each trial, i.e. 0 for the initial cue and 1 for the following cue
+        * label: 'same' or 'diff' for fitting_stimuli
+        
+        output BehavioralAssembly with dimensions `presentation x choice` where `choice` is 1-dimensional to hold additional metadata,
+            with values 'same' or 'diff' to reflect the choice
+        """
+
+
     def start_task(self, task: Task, fitting_stimuli=None):
         """
         Instructs the model to begin one of the tasks specified in :data:`~brainscore.model_interface.BrainModel.Task`.
