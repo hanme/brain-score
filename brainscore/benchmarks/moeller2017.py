@@ -4,7 +4,7 @@ import numpy as np
 from numpy.random import RandomState
 from tqdm import tqdm
 
-from brainio.assemblies import merge_data_arrays, DataAssembly
+from brainio.assemblies import merge_data_arrays, DataAssembly, walk_coords, array_is_element
 from brainio.stimuli import StimulusSet
 from brainscore.benchmarks import BenchmarkBase
 from brainscore.metrics import Metric
@@ -141,6 +141,12 @@ class _Moeller2017(BenchmarkBase):
             behavior = type(behavior)(behavior)  # make sure current_pulse_mA is indexed
             behaviors.append(behavior)
         candidate.perturb(perturbation=None, target='IT')  # reset
+        # to avoid merge errors, discard any non-essential metadata
+        # (e.g. a model might define a `choice_label` on `presentation`)
+        behaviors = [type(behavior)(behavior.values, coords={
+            coord: (dims, values) for coord, dims, values in walk_coords(behavior)
+            if not array_is_element(dims, 'presentation') or coord in ['stimulus_id', 'trial', 'label']},
+                                    dims=behavior.dims) for behavior in behaviors]
         behaviors = merge_data_arrays(behaviors)
         # flatten
         behaviors = behaviors.reset_index('stimulation').reset_index('presentation') \
@@ -309,8 +315,12 @@ def stimulation_same_different_significant_change(candidate_behaviors, aggregate
     """
     change_metric = SignificantPerformanceChange(condition_name='current_pulse_mA',
                                                  condition_value1=0, condition_value2=300, trial_dimension='condition')
-    score_same = change_metric(candidate_behaviors.sel(task='same_id'), aggregate_target.sel(task='same_id'))
-    score_different = change_metric(candidate_behaviors.sel(task='different_id'), aggregate_target.sel(task='same_id'))
+    score_same = change_metric(
+        candidate_behaviors[{'condition': candidate_behaviors['label'] == 'same'}].squeeze('choice'),
+        aggregate_target.sel(task='same_id'))
+    score_different = change_metric(
+        candidate_behaviors[{'condition': candidate_behaviors['label'] == 'diff'}].squeeze('choice'),
+        aggregate_target.sel(task='same_id'))
     joint_score = score_same & score_different
     joint_score.attrs['score_same'] = score_same
     joint_score.attrs['score_different'] = score_different
@@ -351,9 +361,7 @@ class Moeller2017Experiment2(BenchmarkBase):
                                                metric=metric, performance_measure=Accuracy())
 
     def __call__(self, candidate):
-        import copy
-        candidate_copy = copy.copy(candidate)  # TODO: why is this done
-        return self.benchmark1_outside_faces(candidate), self.benchmark2_objects(candidate_copy)
+        return self.benchmark1_outside_faces(candidate), self.benchmark2_objects(candidate)
 
 
 def Moeller2017Experiment3():

@@ -99,8 +99,8 @@ class SignificantPerformanceChange(Metric):
         expected_direction = target_accuracy2 - target_accuracy1
         # test if the source change is significant
         difference_significant = is_significantly_different(DataAssembly(source), between=self.condition_name)
-        accuracy1 = source.sel(**{self.condition_name: self.condition_value1}).mean(self.trial_dimension)
-        accuracy2 = source.sel(**{self.condition_name: self.condition_value2}).mean(self.trial_dimension)
+        accuracy1 = self.compute_accuracy(source, condition_value=self.condition_value1)
+        accuracy2 = self.compute_accuracy(source, condition_value=self.condition_value2)
         source_difference = accuracy2 - accuracy1
         # match?
         same_direction = np.sign(source_difference) == np.sign(expected_direction)
@@ -110,6 +110,12 @@ class SignificantPerformanceChange(Metric):
         score.attrs['accuracy2'] = accuracy2
         score.attrs['delta_accuracy'] = source_difference
         return score
+
+    def compute_accuracy(self, assembly, condition_value):
+        condition_assembly = assembly.sel(**{self.condition_name: condition_value})
+        correct = condition_assembly == condition_assembly['label']
+        accuracy = correct.mean(self.trial_dimension)
+        return accuracy
 
 
 class NoSignificantPerformanceChange(Metric):
@@ -158,6 +164,8 @@ def is_significantly_different(assembly, between, significance_threshold=0.05):
     # convert assembly into dataframe
     data = assembly.to_pandas().reset_index()
     data = data.rename(columns={0: 'values'})
+    value0 = data['values'][0]
+    data['values'] = [int(value == value0) for value in data['values']]  # convert to int for ANOVA
     anova = pg.anova(data=data, dv='values', between=between)
     pvalue = anova['p-unc'][0]
     significantly_different = pvalue < significance_threshold
