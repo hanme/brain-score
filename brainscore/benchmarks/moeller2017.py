@@ -313,14 +313,18 @@ def stimulation_same_different_significant_change(candidate_behaviors, aggregate
     :return: A :class:`~brainscore.metrics.Score` of 1 if the candidate_behaviors significantly change in the same
         direction as the aggregate_target, for each of the same and different tasks; 0 otherwise
     """
+    candidate_performances = (candidate_behaviors == candidate_behaviors['label']).squeeze('choice')
     change_metric = SignificantPerformanceChange(condition_name='current_pulse_mA',
                                                  condition_value1=0, condition_value2=300, trial_dimension='condition')
-    score_same = change_metric(
-        candidate_behaviors[{'condition': candidate_behaviors['label'] == 'same'}].squeeze('choice'),
-        aggregate_target.sel(task='same_id'))
-    score_different = change_metric(
-        candidate_behaviors[{'condition': candidate_behaviors['label'] == 'diff'}].squeeze('choice'),
-        aggregate_target.sel(task='same_id'))
+    # same task
+    candidate_same_task = candidate_performances[{'condition': candidate_performances['label'] == 'same'}]
+    target_same_task = aggregate_target.sel(task='same_id')
+    score_same = change_metric(candidate_same_task, target_same_task)
+    # diff task
+    candidate_diff_task = candidate_performances[{'condition': candidate_performances['label'] == 'diff'}]
+    target_diff_task = aggregate_target.sel(task='different_id')
+    score_different = change_metric(candidate_diff_task, target_diff_task)
+    # combine
     joint_score = score_same & score_different
     joint_score.attrs['score_same'] = score_same
     joint_score.attrs['score_different'] = score_different

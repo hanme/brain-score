@@ -1,8 +1,8 @@
 import numpy as np
 import pingouin as pg
-from brainio.assemblies import DataAssembly
 from scipy.stats import pearsonr, fisher_exact
 
+from brainio.assemblies import DataAssembly
 from brainscore.metrics import Score, Metric
 
 
@@ -83,10 +83,9 @@ class SignificantPerformanceChange(Metric):
         self.significance_threshold = significance_threshold
         self.trial_dimension = trial_dimension
 
-    def __call__(self, source, aggregate_target):
+    def __call__(self, source: DataAssembly, aggregate_target: DataAssembly) -> Score:
         """
-        :param source: Per-trial behaviors (_not_ aggregate performance measures),
-            in the `self.trial_dimension` dimension.
+        :param source: Per-trial performances (i.e. `True`/`False` values) along the `self.trial_dimension` dimension.
         :param aggregate_target: Performance numbers for the experimental observations, i.e. _not_ per-trial data.
             This will be used to determine the expected direction from the condition change (increase/decrease).
             Note that since these are aggregate numbers, a significant change is assumed for the target.
@@ -99,23 +98,17 @@ class SignificantPerformanceChange(Metric):
         expected_direction = target_accuracy2 - target_accuracy1
         # test if the source change is significant
         difference_significant = is_significantly_different(DataAssembly(source), between=self.condition_name)
-        accuracy1 = self.compute_accuracy(source, condition_value=self.condition_value1)
-        accuracy2 = self.compute_accuracy(source, condition_value=self.condition_value2)
-        source_difference = accuracy2 - accuracy1
+        source_accuracy1 = source.sel(**{self.condition_name: self.condition_value1}).mean(self.trial_dimension)
+        source_accuracy2 = source.sel(**{self.condition_name: self.condition_value2}).mean(self.trial_dimension)
+        source_difference = source_accuracy2 - source_accuracy1
         # match?
         same_direction = np.sign(source_difference) == np.sign(expected_direction)
         score = same_direction and difference_significant
         score = Score([score], coords={'aggregation': ['center']}, dims=['aggregation'])
-        score.attrs['accuracy1'] = accuracy1
-        score.attrs['accuracy2'] = accuracy2
+        score.attrs['accuracy1'] = source_accuracy1
+        score.attrs['accuracy2'] = source_accuracy2
         score.attrs['delta_accuracy'] = source_difference
         return score
-
-    def compute_accuracy(self, assembly, condition_value):
-        condition_assembly = assembly.sel(**{self.condition_name: condition_value})
-        correct = condition_assembly == condition_assembly['label']
-        accuracy = correct.mean(self.trial_dimension)
-        return accuracy
 
 
 class NoSignificantPerformanceChange(Metric):
