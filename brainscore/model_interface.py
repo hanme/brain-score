@@ -153,7 +153,7 @@ class BrainModel:
     class Hemisphere:
         """ the hemisphere to record in """
         left = 'left'
-        left = 'right'
+        right = 'right'
 
     class RecordingType:
         """ technique to record with """

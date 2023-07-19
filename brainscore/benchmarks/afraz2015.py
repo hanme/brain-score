@@ -126,7 +126,7 @@ class _Afraz2015Optogenetics(BenchmarkBase):
                 behavior['site_iteration'] = 'site', [site]
                 behavior['site_x'] = 'site', [location[0]]
                 behavior['site_y'] = 'site', [location[1]]
-                behavior['hemisphere'] = 'site', [hemisphere.name]
+                behavior['hemisphere'] = 'site', [hemisphere]
                 behavior = type(behavior)(behavior)  # make sure site is indexed
                 candidate_behaviors.append(behavior)
         candidate.perturb(perturbation=None, target='IT')  # reset
