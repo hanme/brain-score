@@ -1,0 +1,1401 @@
+diff --git a/.readthedocs.yml b/.readthedocs.yml
+deleted file mode 100644
+index 827ed11..0000000
+--- a/.readthedocs.yml
++++ /dev/null
+@@ -1,3 +0,0 @@
+-python:
+-   install:
+-      - requirements: docs/requirements.txt
+diff --git a/.travis.yml b/.travis.yml
+index 8276d13..67ece3c 100644
+--- a/.travis.yml
++++ b/.travis.yml
+@@ -3,8 +3,10 @@ matrix:
+   include:
+   - name: 3.7 public
+     python: '3.7'
+-  - name: 3.7 private
+-    python: '3.7'
++    dist: xenial # python 3.7 workaround: https://github.com/travis-ci/travis-ci/issues/9815
++    sudo: true
++  - name: 3.6 private
++    python: '3.6'
+     env:
+     - PRIVATE_ACCESS=1
+     - secure: f1rWEwrslh7qa2g/QlKs001sGC3uaOxZNQSfNOPj+TMCqEo2c6OzImC4hyz+WqCyc6N/lFT4yYo2RhvaqStHMRmu/+9aZmuH05Bb0KQpfzNFA+yGa/U5WR3/4u6KRvDAeNEi9drT2LuacTyGbldmQsquujK0jrPpFWpe7zUUKv0zb0lJf0zcjeSrZlDXLlgD6DCqow7OqHRvW04dPZVy1OArRwtPV6DJ6Rqo1MqFQGHJ806VPlXhSoydb7a58dhGajqPjomdmZjhd3wS6Lv6uetTE/VVb4EP4e7n0qfZIx/TpnWG0SR44pcP7OCNARWYANsAivzxnQ0shyXnIzOo8ZcPYiPpt/5D53i5idTBxXyuDaHGQvgwuY5XLZzznEedBgZa4OvjxAXlLEQjdVDfSsZeYaV9gyFkeTlLnK1zvWi0US38eF2Qtm3Sx3D/5TtBKK2n38tyK5gg/XvJNycaXvIl7iVcnI2ifpqD1mUWI6C9j9Tk19/XEpWkwaFi91+0LZF1GhjBu8o3G5Np4RIOKXi3TIHkpbMM5mf11T6Bm9LvEMq1h8bgRQigEbeJF8CbUOSVFv+AaXsggGjQhuwdyvy2JZo+tO1nfhi+kW3XrDGPsz1R7Wfqduyn7UUh5OiFymeZwKseYKnwU47KyCqDwrq5Mnx1MlSidnVmPriadR4=
+@@ -12,23 +14,13 @@ matrix:
+     - AWS_DEFAULT_REGION=us-east-1
+ before_install:
+ - pip install --upgrade pip
+-- pip install setuptools==60.5.0
+ - pip install pytest
+ # download large files
+ - pip install awscli
+-- bash test_setup.sh
++- aws --no-sign-request s3 cp s3://brain-score-tests/tests/test_benchmark/alexnet-hvmv6-features.6.pkl tests/test_benchmark/
+ install:
+ - pip install .
+ - pip list # list installed package versions
+ script:
+-- if [ "$PRIVATE_ACCESS" = 1 ] && [ "$TRAVIS_PULL_REQUEST" = "false" ]; then pytest -m "private_access and not requires_gpu and not memory_intense and not slow and not travis_slow"; fi
+-- if [ "$PRIVATE_ACCESS" != 1 ]; then pytest -m "not private_access and not requires_gpu and not memory_intense and not slow and not travis_slow"; fi
+-
+-notifications:
+-  slack:
+-    if: |
+-      branch = master AND \
+-      type IN (push, api, cron)
+-    on_success: change
+-    on_failure: always
+-    secure: m86mcMqLJGtsv7OQCLcSzPsxLEkVQDEsCNnJ02gLy8Lkh3bJHmOGQ9DUGyR7tACy+++N8uuBZETBK9jjcROxhlM8r0CeEvBzFbGm5lHmx+Crq5Fn3NphTDVdoPJDEgtxgFpC6ZZZaBZQ0gGDLvSyF8hkkufKJXiC5I85IIvrQDVZOnXKcDU1fUnic2xwaZlbLZGOPd1LIELYb9cG37SXW9dTxV8+9wPQLs8geRCeqhkvr2Qzqva+DXp0kTKGrpKW58ZrunLvIogIx50+4nBZOQjcz2U7IgWX1lF1OKZRTCHbBOnKMRZeexx1VS6WGLat67k9LW2p50k7rRJ/Nz1msIn4qJOpchgys4MtnC01uUG0Lpxxo1h0Y2L1nW2uvzSA55hb1Ax/5jNKP7mjAArmrjvSooYfwkSTj4rQJvWsM+NErBGTrNWgAMydItmhLN8WYyUBiTSmd6DBv0WtUAhwTMxK9ZzETrFEi8y6cTqSNY09Qi9mgrJcRnKTlhqRrtJXwwefs5wii+rwFppb3+qhlo3duYanc721RSF7kKdOvOM/K84uIIUm+SwZJjXIK4tUjBHzWKSMUX8YqhgZCMRaRqVqYqo2AR7aOJXz69SD3QyBI7+DGoR4k2QxYcWEx/iUtW/6qePRKra0rb6iH7kCcy5mycd5gjGBdk197oDKNhU=
++- if [ "$PRIVATE_ACCESS" = 1 ] && [ "$TRAVIS_PULL_REQUEST" = "false" ]; then pytest -m "not requires_gpu and not memory_intense"; fi
++- if [ "$PRIVATE_ACCESS" != 1 ]; then pytest -m "not requires_gpu and not memory_intense and not private_access"; fi
+diff --git a/MANIFEST.in b/MANIFEST.in
+index 3b86079..933edad 100644
+--- a/MANIFEST.in
++++ b/MANIFEST.in
+@@ -1,7 +1,7 @@
+ include LICENSE
+ include README.md
+-include brainscore/lookup.csv
+ 
++recursive-include tests *
+ recursive-exclude * __pycache__
+ recursive-exclude * *.py[co]
+ 
+diff --git a/README.md b/README.md
+index aa80f37..118a4da 100644
+--- a/README.md
++++ b/README.md
+@@ -1,69 +1,82 @@
+ [![Build Status](https://travis-ci.com/brain-score/brain-score.svg?token=vqt7d2yhhpLGwHsiTZvT&branch=master)](https://travis-ci.com/brain-score/brain-score)
+-[![Documentation Status](https://readthedocs.org/projects/brain-score/badge/?version=latest)](https://brain-score.readthedocs.io/en/latest/?badge=latest)
+ 
+-Brain-Score is a platform to evaluate computational models of brain function 
+-on their match to brain measurements in primate vision. 
+-The intent of Brain-Score is to adopt many (ideally all) the experimental benchmarks in the field
+-for the purpose of model testing, falsification, and comparison.
+-To that end, Brain-Score operationalizes experimental data into quantitative benchmarks 
+-that any model candidate following the [`BrainModel`](brainscore/model_interface.py) interface can be scored on.
++# Brain-Score
+ 
+-See the [Documentation](https://brain-score.readthedocs.io) for more details 
+-and the [Tutorial](https://brain-score.readthedocs.io/en/latest/modules/model_tutorial.html) 
+-and [Examples](https://github.com/brain-score/candidate_models/blob/master/examples/score-model.ipynb)
+-for submitting a model to Brain-Score.
++`brainscore` standardizes the interface between neuroscience metrics
++and the data they operate on.
++Brain recordings (termed "assemblies", e.g. neural or behavioral)
++are packaged in a [standard format](http://xarray.pydata.org/).
++This allows metrics (e.g. neural predictivity, RDMs) to operate
++on many assemblies without having to be re-written.
++Together with http://github.com/brain-score/candidate_models, `brainscore`
++allows scoring candidate models of the brain on a range of assemblies and metrics.
+ 
+-Brain-Score is made by and for the community. 
+-To contribute, please [send in a pull request](https://github.com/brain-score/brain-score/pulls).
+ 
++## Quick setup
+ 
+-## Local installation
+-
+-You will need Python = 3.7 and pip >= 18.1.
+-Note that you can only access public benchmarks when running locally.
+-To score a model on all benchmarks, submit it via the [brain-score.org website](http://www.brain-score.org).
++Recommended for most users. Use Brain-Score as a library. You will need Python >= 3.6 and pip >= 18.1.
+ 
+ `pip install git+https://github.com/brain-score/brain-score`
+ 
+-Score a model on a public benchmark:
++To contribute code to Brain-Score, see the [Development Setup](#development-setup).
++
++
++## Basic Usage
++
+ ```python
+-from brainscore.benchmarks import public_benchmark_pool
+-
+-benchmark = public_benchmark_pool['dicarlo.MajajHong2015public.IT-pls']
+-model = my_model()
+-score = benchmark(model)
+-#>  <xarray.Score (aggregation: 2)>
+-#>  array([0.32641998, 0.0207475])
+-#>  Coordinates:
+-#>    * aggregation  (aggregation) <U6 'center' 'error'
+-#>  Attributes:
+-#>      raw:                   <xarray.Score (aggregation: 2)>\narray([0.4278365 ...
+-#>      ceiling:               <xarray.Score (aggregation: 2)>\narray([0.7488407 ...
+-#>      model_identifier:      my-model
+-#>      benchmark_identifier:  dicarlo.MajajHong2015public.IT-pls
++$ import brainscore
++$ hvm = brainscore.get_assembly("dicarlo.Majaj2015")`
++$ hvm
++<xarray.NeuronRecordingAssembly 'dicarlo.Majaj2015' (neuroid: 296, presentation: 268800, time_bin: 1)>
++array([[[ 0.060929],
++        [-0.686162],
++        ...,
++Coordinates:
++  * neuroid          (neuroid) MultiIndex
++  - neuroid_id       (neuroid) object 'Chabo_L_M_5_9' 'Chabo_L_M_6_9' ...
++  ...
++$ ...
++$ metric = RDM()
++$ score = metric(assembly1=hvm, assembly2=hvm)
++Score(aggregation: 2)>
++array([1., 0.])
++Coordinates:
++  * aggregation    'center' 'error'
+ ```
+ 
+ Some steps may take minutes because data has to be downloaded during first-time use.
+ 
+-For more details, see the [Documentation](https://brain-score.readthedocs.io) and 
+-the Examples [[1]](https://github.com/brain-score/brain-score/blob/master/examples) 
+-[[2]](https://github.com/brain-score/candidate_models/blob/master/examples).
++More examples can be found in the [examples](examples/) directory.
+ 
+ 
+ ## Environment Variables
+ 
+ | Variable               | Description                                                                                                                           |
+ |------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+-| RESULTCACHING_HOME     | directory to cache results (benchmark ceilings) in, `~/.result_caching` by default (see https://github.com/brain-score/result_caching) |
++| RESULTCACHING_HOME     | directory to cache results (benchmark ceilings) in, `~/.result_caching` by default (see https://github.com/mschrimpf/result_caching) |
+ 
+ 
+-## License
++## Development setup
+ 
++Only necessary if you plan to change code.
++
++1. If you want to access private S3 data, get permissions for the DiCarlo Lab Amazon S3 account
++    1. The lab has several S3 accounts. You need to have access to the one numbered 613927419654. Ask [Chris Shay](cshay@mit.edu) to grant access to you
++    2. Configure your AWS credentials files using awscli:
++      1. Install awscli using `pip install awscli`
++      2. Run `aws configure`: region: `us-east-1`, output format: `json`
++2. Clone the Git repository to wherever you keep repositories:
++    * `cd ~/dev`
++    * `git clone git@github.com:dicarlolab/brain-score.git`
++3. Install the depencies (we suggest doing this in a [conda environment](https://conda.io/docs/user-guide/tasks/manage-environments.html)):
++    * `pip install -e .`
++
++
++## License
+ MIT license
+ 
+ 
+ ## Troubleshooting
+-
+ <details>
+ <summary>`ValueError: did not find HDF5 headers` during netcdf4 installation</summary>
+ pip seems to fail properly setting up the HDF5_DIR required by netcdf4.
+@@ -75,34 +88,3 @@ Use conda: `conda install netcdf4`
+ results (scores, activations) are cached on disk using https://github.com/mschrimpf/result_caching.
+ Delete the corresponding file or directory to clear the cache.
+ </details>
+-
+-
+-## CI environment
+-
+-Add CI related build commands to `test_setup.sh`. The script is executed in CI environment for unittests.
+-
+-
+-## References
+-
+-If you use Brain-Score in your work, please cite 
+-["Brain-Score: Which Artificial Neural Network for Object Recognition is most Brain-Like?"](https://www.biorxiv.org/content/10.1101/407007v2) (technical) and 
+-["Integrative Benchmarking to Advance Neurally Mechanistic Models of Human Intelligence"](https://www.cell.com/neuron/fulltext/S0896-6273(20)30605-X) (perspective) 
+-as well as the respective benchmark sources.
+-
+-```bibtex
+-@article{SchrimpfKubilius2018BrainScore,
+-  title={Brain-Score: Which Artificial Neural Network for Object Recognition is most Brain-Like?},
+-  author={Martin Schrimpf and Jonas Kubilius and Ha Hong and Najib J. Majaj and Rishi Rajalingham and Elias B. Issa and Kohitij Kar and Pouya Bashivan and Jonathan Prescott-Roy and Franziska Geiger and Kailyn Schmidt and Daniel L. K. Yamins and James J. DiCarlo},
+-  journal={bioRxiv preprint},
+-  year={2018},
+-  url={https://www.biorxiv.org/content/10.1101/407007v2}
+-}
+-
+-@article{Schrimpf2020integrative,
+-  title={Integrative Benchmarking to Advance Neurally Mechanistic Models of Human Intelligence},
+-  author={Schrimpf, Martin and Kubilius, Jonas and Lee, Michael J and Murty, N Apurva Ratan and Ajemian, Robert and DiCarlo, James J},
+-  journal={Neuron},
+-  year={2020},
+-  url={https://www.cell.com/neuron/fulltext/S0896-6273(20)30605-X}
+-}
+-```
+diff --git a/brainscore/__init__.py b/brainscore/__init__.py
+index 08a849b..6efa0e8 100644
+--- a/brainscore/__init__.py
++++ b/brainscore/__init__.py
+@@ -1,53 +1,13 @@
+-import logging
+-
+-# The following imports provide convenience methods.
+-# noinspection PyUnresolvedReferences
+-from brainio import list_stimulus_sets, list_assemblies
+-# noinspection PyUnresolvedReferences
+-from brainio.fetch import get_assembly as brainio_get_assembly, get_stimulus_set
+-from brainscore.benchmarks import benchmark_pool
+-from result_caching import store
+-
+-_logger = logging.getLogger(__name__)
++from brainio_collection.fetch import get_assembly as brainio_get_assembly, get_stimulus_set
++from brainio_collection import list_stimulus_sets, list_assemblies
+ 
+ 
+ def get_assembly(name):
+     assembly = brainio_get_assembly(name)
+-    assert hasattr(assembly.stimulus_set, 'identifier')
+-    assert assembly.stimulus_set.identifier == assembly.stimulus_set_identifier
+-    return assembly
+-
++    if not hasattr(assembly.stimulus_set, 'name'):
++        assembly.stimulus_set.name = assembly.stimulus_set_name
+ 
+-@store(identifier_ignore=['model', 'benchmark'])
+-def score_model(model_identifier, benchmark_identifier, model):
+-    """
+-    Score a given model on a given benchmark.
+-    The model needs to implement the :class:`~brainscore.model_interface.BrainModel` interface so that the benchmark can
+-    interact with it.
+-    The benchmark will be looked up from the :data:`~brainscore.benchmarks.benchmark_pool` and evaluates the model
+-    on how brain-like it is under that benchmark's experimental paradigm, primate measurements, comparison metric, and
+-    ceiling. This results in a quantitative :class:`~brainscore.metrics.Score` ranging from 0 (least brain-like) to 1
+-    (most brain-like under this benchmark).
+-
+-    The results of this method are cached by default (according to the identifiers), calling it twice with the same
+-    identifiers will only invoke once.
+-
+-    :param model_identifier: a unique identifier for this model
+-    :param model: the model implementation following the :class:`~brainscore.model_interface.BrainModel` interface
+-    :param benchmark_identifier: the identifier of the benchmark to test the model against
+-    :return: a :class:`~brainscore.metrics.Score` of how brain-like the candidate model is under this benchmark. The
+-                score is normalized by this benchmark's ceiling such that 1 means the model matches the data to ceiling
+-                level.
+-
+-    :seealso: :class:`brainscore.benchmarks.Benchmark`
+-    :seealso: :class:`brainscore.model_interface.BrainModel`
+-    """
+-    # model_identifier variable is not unused, the result caching component uses it to identify the cached results
+-    assert model is not None
+-    _logger.debug("retrieving benchmark")
+-    benchmark = benchmark_pool[benchmark_identifier]
+-    _logger.debug("scoring model")
+-    score = benchmark(model)
+-    score.attrs['model_identifier'] = model_identifier
+-    score.attrs['benchmark_identifier'] = benchmark_identifier
+-    return score
++    stimulus_set_degrees = {'dicarlo.hvm': 8, 'movshon.FreemanZiemba2013': 4}
++    if assembly.stimulus_set.name in stimulus_set_degrees:
++        assembly.stimulus_set['degrees'] = stimulus_set_degrees[assembly.stimulus_set.name]
++    return assembly
+diff --git a/brainscore/benchmarks/__init__.py b/brainscore/benchmarks/__init__.py
+index 7be2584..9308fc3 100644
+--- a/brainscore/benchmarks/__init__.py
++++ b/brainscore/benchmarks/__init__.py
+@@ -1,98 +1,35 @@
+-"""
+-A :class:`~brainscore.benchmarks.Benchmark` runs an experiment on a :class:`~brainscore.model_interface.BrainModel`
+-and tests the resulting measurements against primate `data <https://github.com/brain-score/brainio>`_.
+-This comparison is done by a :class:`~brainscore.metrics.Metric` which outputs a score of how well model and data match.
+-This score is normalized with data ceilings and the benchmark returns this ceiled score.
+-"""
+-import itertools
+ from abc import ABC
+ 
+ from result_caching import cache, store
+ 
+ from brainscore.metrics import Score
+-from brainscore.model_interface import BrainModel
+ from brainscore.utils import LazyLoad
+ 
+ 
+ class Benchmark(ABC):
+-    """
+-    Standard Benchmark interface defining the method interfaces.
+-    """
+-
+-    def __call__(self, candidate: BrainModel) -> Score:
+-        """
+-        Evaluate a candidate `BrainModel` and return a :class:`~brainscore.metrics.Score` denoting the brain-likeness of
+-        the model under this benchmark. Typically this involves reproducing the experiment on the model and then
+-        comparing model measurements (e.g. neural/behavioral) against recordings from biological subjects (e.g.
+-        primates) using a :class:`~brainscore.metrics.Metric`. The output of this method is a normalized score between 0
+-        and 1 where 0 means the model does not match the measurements at all and 1 means the model matches the
+-        measurements at ceiling level (e.g. if the model obtains a score of 0.8 and the data ceiling is also 0.8, the
+-        score output by this method should be 1).
+-
+-        :param candidate: a candidate model implementing the `BrainModel` interface. Benchmarks are agnostic of the
+-                exact implementation and only interact with models through the methods defined in the interface.
+-        :return: a :class:`~brainscore.metrics.Score` of how brain-like the candidate model is under this benchmark. The
+-                score is normalized by this benchmark's ceiling such that 1 means the model matches the data to ceiling
+-                level.
+-        """
+-        raise NotImplementedError()
+-
+-    @property
+-    def bibtex(self) -> str:
+-        """
+-        bibtex string to build the reference.
+-        Should include an `url` to build a proper link.
+-        """
++    def __call__(self, candidate):
+         raise NotImplementedError()
+ 
+     @property
+-    def identifier(self) -> str:
+-        """
+-        Unique identifier for this benchmark.
+-        Standard format is `<data identifier>-<metric identifier>`, e.g. `dicarlo.Rajalingham2018-i2n`.
+-
+-        :return: a unique identifier for this benchmark
+-        """
++    def identifier(self):
+         raise NotImplementedError()
+ 
+     @property
+-    def version(self) -> str:
+-        """
+-        Optional, but strongly encouraged.
+-
+-        :return: a version number that is increased every time the model scores for this benchmark change
+-                (but not for code changes that do not change scores).
+-        """
++    def version(self):
+         raise NotImplementedError()
+ 
+     @property
+-    def ceiling(self) -> Score:
+-        """
+-        The ceiling of this benchmark. Scores need to be normalized by this value.
+-        Typically this represents the signal in the data and how well we expect the best possible model to score.
+-
+-        :return: a Score object, denoting the ceiling of this benchmark.
+-                Typically has two values indexed by an `aggregation` coordinate:
+-                `center` for the averaged ceiling value, and `error` for the uncertainty.
+-        """
++    def ceiling(self):
+         raise NotImplementedError()
+ 
+ 
+ class BenchmarkBase(Benchmark):
+-    """
+-    Helper class for implementing standard functions of the `Benchmark` interface.
+-    """
+-
+-    def __init__(self, identifier, ceiling_func, version, parent=None, bibtex=None):
++    def __init__(self, identifier, ceiling_func, version, parent=None, paper_link=None):
+         self._identifier = identifier
+         self._ceiling_func = ceiling_func
+         self._version = version
+         self.parent = parent
+-        self._bibtex = bibtex
+-
+-    @property
+-    def bibtex(self):
+-        return self._bibtex
++        self.paper_link = paper_link
+ 
+     @property
+     def identifier(self):
+@@ -120,272 +57,42 @@ def ceil_score(score, ceiling):
+     return ceiled_score
+ 
+ 
+-# define functions creating the benchmark pools, with local imports to avoid circular imports
+-
+-def _evaluation_benchmark_pool():
+-    """"
+-    Standard benchmarks that are evaluated for the website.
+-    """
+-    pool = {}
+-
+-    # neural benchmarks
+-    # MajajHong2015
+-    from .majajhong2015 import DicarloMajajHong2015V4PLS, DicarloMajajHong2015ITPLS
+-    pool['dicarlo.MajajHong2015.V4-pls'] = LazyLoad(DicarloMajajHong2015V4PLS)
+-    pool['dicarlo.MajajHong2015.IT-pls'] = LazyLoad(DicarloMajajHong2015ITPLS)
+-    # FreemanZiemba2013
+-    from .freemanziemba2013 import MovshonFreemanZiemba2013V1PLS, MovshonFreemanZiemba2013V2PLS
+-    pool['movshon.FreemanZiemba2013.V1-pls'] = LazyLoad(MovshonFreemanZiemba2013V1PLS)
+-    pool['movshon.FreemanZiemba2013.V2-pls'] = LazyLoad(MovshonFreemanZiemba2013V2PLS)
+-    from .kar2019 import DicarloKar2019OST
+-    pool['dicarlo.Kar2019-ost'] = LazyLoad(DicarloKar2019OST)
+-    # V1 properties benchmarks: orientation
+-    from .marques2020_ringach2002 import MarquesRingach2002V1CircularVariance, MarquesRingach2002V1Bandwidth, \
+-        MarquesRingach2002V1OrthogonalPreferredRatio, MarquesRingach2002V1OrientationSelective, \
+-        MarquesRingach2002V1CircularVarianceBandwidthRatio, \
+-        MarquesRingach2002V1OrthogonalPrefferredRatioCircularVarianceDifference
+-    from .marques2020_devalois1982a import MarquesDeValois1982V1PreferredOrientation
+-    pool['dicarlo.Marques2020_Ringach2002-circular_variance'] = LazyLoad(MarquesRingach2002V1CircularVariance)
+-    pool['dicarlo.Marques2020_Ringach2002-or_bandwidth'] = LazyLoad(MarquesRingach2002V1Bandwidth)
+-    pool['dicarlo.Marques2020_Ringach2002-orth_pref_ratio'] = LazyLoad(MarquesRingach2002V1OrthogonalPreferredRatio)
+-    pool['dicarlo.Marques2020_Ringach2002-or_selective'] = LazyLoad(MarquesRingach2002V1OrientationSelective)
+-    pool['dicarlo.Marques2020_Ringach2002-cv_bandwidth_ratio'] = \
+-        LazyLoad(MarquesRingach2002V1CircularVarianceBandwidthRatio)
+-    pool['dicarlo.Marques2020_Ringach2002-opr_cv_diff'] = \
+-        LazyLoad(MarquesRingach2002V1OrthogonalPrefferredRatioCircularVarianceDifference)
+-    pool['dicarlo.Marques2020_DeValois1982-pref_or'] = LazyLoad(MarquesDeValois1982V1PreferredOrientation)
+-    # V1 properties benchmarks: spatial frequency
+-    from .marques2020_devalois1982b import MarquesDeValois1982V1PeakSpatialFrequency
+-    from .marques2020_schiller1976 import MarquesSchiller1976V1SpatialFrequencyBandwidth, \
+-        MarquesSchiller1976V1SpatialFrequencySelective
+-    pool['dicarlo.Marques2020_DeValois1982-peak_sf'] = LazyLoad(MarquesDeValois1982V1PeakSpatialFrequency)
+-    pool['dicarlo.Marques2020_Schiller1976-sf_selective'] = LazyLoad(MarquesSchiller1976V1SpatialFrequencySelective)
+-    pool['dicarlo.Marques2020_Schiller1976-sf_bandwidth'] = LazyLoad(MarquesSchiller1976V1SpatialFrequencyBandwidth)
+-    # V1 properties benchmarks: surround
+-    from .marques2020_cavanaugh2002a import MarquesCavanaugh2002V1GratingSummationField, \
+-        MarquesCavanaugh2002V1SurroundDiameter, MarquesCavanaugh2002V1SurroundSuppressionIndex
+-    pool['dicarlo.Marques2020_Cavanaugh2002-grating_summation_field'] = \
+-        LazyLoad(MarquesCavanaugh2002V1GratingSummationField)
+-    pool['dicarlo.Marques2020_Cavanaugh2002-surround_diameter'] = \
+-        LazyLoad(MarquesCavanaugh2002V1SurroundDiameter)
+-    pool['dicarlo.Marques2020_Cavanaugh2002-surround_suppression_index'] = \
+-        LazyLoad(MarquesCavanaugh2002V1SurroundSuppressionIndex)
+-    # V1 properties benchmarks: texture modulation
+-    from .marques2020_freemanZiemba2013 import MarquesFreemanZiemba2013V1TextureModulationIndex, \
+-        MarquesFreemanZiemba2013V1AbsoluteTextureModulationIndex
+-    pool['dicarlo.Marques2020_FreemanZiemba2013-texture_modulation_index'] = \
+-        LazyLoad(MarquesFreemanZiemba2013V1TextureModulationIndex)
+-    pool['dicarlo.Marques2020_FreemanZiemba2013-abs_texture_modulation_index'] = \
+-        LazyLoad(MarquesFreemanZiemba2013V1AbsoluteTextureModulationIndex)
+-    # V1 properties benchmarks: selectivity
+-    from .marques2020_freemanZiemba2013 import MarquesFreemanZiemba2013V1TextureSelectivity, \
+-        MarquesFreemanZiemba2013V1TextureSparseness, MarquesFreemanZiemba2013V1VarianceRatio
+-    pool['dicarlo.Marques2020_FreemanZiemba2013-texture_selectivity'] = \
+-        LazyLoad(MarquesFreemanZiemba2013V1TextureSelectivity)
+-    pool['dicarlo.Marques2020_FreemanZiemba2013-texture_sparseness'] = \
+-        LazyLoad(MarquesFreemanZiemba2013V1TextureSparseness)
+-    pool['dicarlo.Marques2020_FreemanZiemba2013-texture_variance_ratio'] = \
+-        LazyLoad(MarquesFreemanZiemba2013V1VarianceRatio)
+-    # V1 properties benchmarks: magnitude
+-    from .marques2020_ringach2002 import MarquesRingach2002V1MaxDC, MarquesRingach2002V1ModulationRatio
+-    from .marques2020_freemanZiemba2013 import MarquesFreemanZiemba2013V1MaxTexture, MarquesFreemanZiemba2013V1MaxNoise
+-    pool['dicarlo.Marques2020_Ringach2002-max_dc'] = LazyLoad(MarquesRingach2002V1MaxDC)
+-    pool['dicarlo.Marques2020_Ringach2002-modulation_ratio'] = LazyLoad(MarquesRingach2002V1ModulationRatio)
+-    pool['dicarlo.Marques2020_FreemanZiemba2013-max_texture'] = LazyLoad(MarquesFreemanZiemba2013V1MaxTexture)
+-    pool['dicarlo.Marques2020_FreemanZiemba2013-max_noise'] = LazyLoad(MarquesFreemanZiemba2013V1MaxNoise)
+-    # Sanghavi2020 benchmarks
+-    from .sanghavi2020 import DicarloSanghavi2020V4PLS, DicarloSanghavi2020ITPLS
+-    pool['dicarlo.Sanghavi2020.V4-pls'] = LazyLoad(DicarloSanghavi2020V4PLS)
+-    pool['dicarlo.Sanghavi2020.IT-pls'] = LazyLoad(DicarloSanghavi2020ITPLS)
+-    from .sanghavijozwik2020 import DicarloSanghaviJozwik2020V4PLS, DicarloSanghaviJozwik2020ITPLS
+-    pool['dicarlo.SanghaviJozwik2020.V4-pls'] = LazyLoad(DicarloSanghaviJozwik2020V4PLS)
+-    pool['dicarlo.SanghaviJozwik2020.IT-pls'] = LazyLoad(DicarloSanghaviJozwik2020ITPLS)
+-    from .sanghavimurty2020 import DicarloSanghaviMurty2020V4PLS, DicarloSanghaviMurty2020ITPLS
+-    pool['dicarlo.SanghaviMurty2020.V4-pls'] = LazyLoad(DicarloSanghaviMurty2020V4PLS)
+-    pool['dicarlo.SanghaviMurty2020.IT-pls'] = LazyLoad(DicarloSanghaviMurty2020ITPLS)
+-
+-    # behavioral benchmarks
+-    # Rajalingham2018
+-    from .rajalingham2018 import DicarloRajalingham2018I2n
+-    pool['dicarlo.Rajalingham2018-i2n'] = LazyLoad(DicarloRajalingham2018I2n)
+-    # Geirhos2021-error_consistency
+-    from . import geirhos2021
+-    for dataset in geirhos2021.DATASETS:
+-        assembly_identifier = f'Geirhos2021{dataset}'.replace('-', '')
+-        benchmark_ctr = getattr(geirhos2021, f"{assembly_identifier}ErrorConsistency")
+-        pool[f"brendel.{assembly_identifier}-error_consistency"] = LazyLoad(
+-            # use lambda parameter-binding to avoid `benchmark_ctr` being re-assigned in the next loop iteration
+-            lambda benchmark_ctr=benchmark_ctr: benchmark_ctr())
+-
+-    return pool
+-
+-
+-def _engineering_benchmark_pool():
+-    """
+-    Additional engineering (ML) benchmarks. These benchmarks are public, but are also be evaluated for the website.
+-    """
+-    pool = {}
+-
+-    # ImageNet
+-    from .imagenet import Imagenet2012
+-    pool['fei-fei.Deng2009-top1'] = LazyLoad(Imagenet2012)
+-
+-    # ImageNet-C
+-    from .imagenet_c import Imagenet_C_Noise, Imagenet_C_Blur, Imagenet_C_Weather, Imagenet_C_Digital
+-    pool['dietterich.Hendrycks2019-noise-top1'] = LazyLoad(Imagenet_C_Noise)
+-    pool['dietterich.Hendrycks2019-blur-top1'] = LazyLoad(Imagenet_C_Blur)
+-    pool['dietterich.Hendrycks2019-weather-top1'] = LazyLoad(Imagenet_C_Weather)
+-    pool['dietterich.Hendrycks2019-digital-top1'] = LazyLoad(Imagenet_C_Digital)
+-
+-    # ObjectNet
+-    from .objectnet import Objectnet
+-    pool['katz.BarbuMayo2019-top1'] = LazyLoad(Objectnet)
+-
+-    # Geirhos2021
+-    from . import geirhos2021
+-    for dataset in geirhos2021.DATASETS:
+-        assembly_identifier = f'Geirhos2021{dataset}'.replace('-', '')
+-        benchmark_ctr = getattr(geirhos2021, f"{assembly_identifier}Accuracy")
+-        pool[f"brendel.{assembly_identifier}-top1"] = LazyLoad(
+-            # use lambda parameter-binding to avoid `benchmark_ctr` being re-assigned in the next loop iteration
+-            lambda benchmark_ctr=benchmark_ctr: benchmark_ctr())
+-
+-    # Hermann2020
+-    from .hermann2020 import Hermann2020cueconflictShapeBias, Hermann2020cueconflictShapeMatch
+-    pool['kornblith.Hermann2020cueconflict-shape_bias'] = LazyLoad(Hermann2020cueconflictShapeBias)
+-    pool['kornblith.Hermann2020cueconflict-shape_match'] = LazyLoad(Hermann2020cueconflictShapeMatch)
+-    
+-    return pool
+-
+-
+-def _experimental_benchmark_pool():
+-    """
+-    Benchmarks that can be used, but are not evaluated for the website.
+-    """
+-    pool = {}
+-    # neural benchmarks
+-    from .majajhong2015 import DicarloMajajHong2015V4Mask, DicarloMajajHong2015ITMask, \
+-        DicarloMajajHong2015V4RDM, DicarloMajajHong2015ITRDM
+-    pool['dicarlo.MajajHong2015.V4-mask'] = LazyLoad(DicarloMajajHong2015V4Mask)
+-    pool['dicarlo.MajajHong2015.IT-mask'] = LazyLoad(DicarloMajajHong2015ITMask)
+-    pool['dicarlo.MajajHong2015.V4-rdm'] = LazyLoad(DicarloMajajHong2015V4RDM)
+-    pool['dicarlo.MajajHong2015.IT-rdm'] = LazyLoad(DicarloMajajHong2015ITRDM)
+-    from .freemanziemba2013 import MovshonFreemanZiemba2013V1RDM, MovshonFreemanZiemba2013V2RDM, \
+-        MovshonFreemanZiemba2013V1Single
+-    pool['movshon.FreemanZiemba2013.V1-rdm'] = LazyLoad(MovshonFreemanZiemba2013V1RDM)
+-    pool['movshon.FreemanZiemba2013.V2-rdm'] = LazyLoad(MovshonFreemanZiemba2013V2RDM)
+-    pool['movshon.FreemanZiemba2013.V1-single'] = LazyLoad(MovshonFreemanZiemba2013V1Single)
+-    from .cadena2017 import ToliasCadena2017PLS, ToliasCadena2017Mask
+-    pool['tolias.Cadena2017-pls'] = LazyLoad(ToliasCadena2017PLS)
+-    pool['tolias.Cadena2017-mask'] = LazyLoad(ToliasCadena2017Mask)
+-    from .rajalingham2020 import DicarloRajalingham2020ITPLS
+-    pool['dicarlo.Rajalingham2020.IT-pls'] = LazyLoad(DicarloRajalingham2020ITPLS)
+-    # Schrimpf et al. 2023 spatial & perturbation benchmarks
+-    ## response correlation
+-    from brainscore.benchmarks.majajhong2015 import DicarloMajajHong2015ITSpatialCorrelation
+-    pool['dicarlo.MajajHong2015.IT-spatial_correlation'] = LazyLoad(DicarloMajajHong2015ITSpatialCorrelation)
+-    ## Afraz2006
+-    from brainscore.benchmarks.afraz2006 import Afraz2006FaceDependentShiftSignificant, Afraz2006FaceDependentShift
+-    pool['esteky.Afraz2006-shift_significant'] = LazyLoad(Afraz2006FaceDependentShiftSignificant)
+-    pool['esteky.Afraz2006-face_dependent_shift'] = LazyLoad(Afraz2006FaceDependentShift)
+-    ## Afraz2015
+-    from brainscore.benchmarks.afraz2015 import \
+-        Afraz2015OptogeneticContraDeltaAccuracySignificant, Afraz2015OptogeneticIpsiDeltaAccuracyInsignificant, \
+-        Afraz2015OptogeneticOverallDeltaAccuracy, \
+-        Afraz2015OptogeneticDeltaAccuracyCorrelated, Afraz2015OptogeneticSelectiveDeltaAccuracy, \
+-        Afraz2015MuscimolDeltaAccuracySignificant, \
+-        Afraz2015MuscimolDeltaAccuracyFace, Afraz2015MuscimolDeltaAccuracyNonFace
+-    pool['dicarlo.Afraz2015.optogenetics-contra_accuracy_significant'] = LazyLoad(
+-        Afraz2015OptogeneticContraDeltaAccuracySignificant)
+-    pool['dicarlo.Afraz2015.optogenetics-ipsi_accuracy_insignificant'] = LazyLoad(
+-        Afraz2015OptogeneticIpsiDeltaAccuracyInsignificant)
+-    pool['dicarlo.Afraz2015.optogenetics-delta_accuracy'] = LazyLoad(
+-        Afraz2015OptogeneticOverallDeltaAccuracy)
+-    pool['dicarlo.Afraz2015.optogenetics-delta_accuracy_correlated'] = LazyLoad(
+-        Afraz2015OptogeneticDeltaAccuracyCorrelated)
+-    pool['dicarlo.Afraz2015.optogenetics-selective_delta_accuracy'] = LazyLoad(
+-        Afraz2015OptogeneticSelectiveDeltaAccuracy)
+-    pool['dicarlo.Afraz2015.muscimol-delta_accuracy_significant'] = LazyLoad(Afraz2015MuscimolDeltaAccuracySignificant)
+-    pool['dicarlo.Afraz2015.muscimol-delta_accuracy_face'] = LazyLoad(Afraz2015MuscimolDeltaAccuracyFace)
+-    pool['dicarlo.Afraz2015.muscimol-delta_accuracy_nonface'] = LazyLoad(Afraz2015MuscimolDeltaAccuracyNonFace)
+-    ## Moeller2017
+-    from brainscore.benchmarks.moeller2017 import Moeller2017Experiment1SameDecreaseDifferentIncrease
+-    pool['tsao.Moeller2017.experiment1-same_decrease_different_increase'] = LazyLoad(
+-        Moeller2017Experiment1SameDecreaseDifferentIncrease)
+-    ## Rajalingham2019
+-    from brainscore.benchmarks.rajalingham2019 import \
+-        Rajalingham2019GlobalDeficitsSignificant, Rajalingham2019SpatialCorrelationSignificant, \
+-        Rajalingham2019LateralDeficitDifference, \
+-        Rajalingham2019DeltaPredictionTask, Rajalingham2019DeltaPredictionObject, \
+-        Rajalingham2019DeltaPredictionSpace
+-    pool['dicarlo.Rajalingham2019-global_deficits_significant'] = LazyLoad(Rajalingham2019GlobalDeficitsSignificant)
+-    pool['dicarlo.Rajalingham2019-lateral_deficit_difference'] = LazyLoad(Rajalingham2019LateralDeficitDifference)
+-    pool['dicarlo.Rajalingham2019-spatial_correlation_significant'] = LazyLoad(
+-        Rajalingham2019SpatialCorrelationSignificant)
+-    pool['dicarlo.Rajalingham2019-delta_prediction_task'] = LazyLoad(Rajalingham2019DeltaPredictionTask)
+-    pool['dicarlo.Rajalingham2019-delta_prediction_object'] = LazyLoad(Rajalingham2019DeltaPredictionObject)
+-    pool['dicarlo.Rajalingham2019-delta_prediction_space'] = LazyLoad(Rajalingham2019DeltaPredictionSpace)
+-
+-    # Islam 2021:
+-    from .islam2021 import Islam2021Dimensionality_V1_Shape, Islam2021Dimensionality_V1_Texture, \
+-        Islam2021Dimensionality_V2_Shape, Islam2021Dimensionality_V2_Texture, \
+-        Islam2021Dimensionality_V4_Shape, Islam2021Dimensionality_V4_Texture, \
+-        Islam2021Dimensionality_IT_Shape, Islam2021Dimensionality_IT_Texture
+-    pool['Islam2021-shape_v1_dimensionality'] = LazyLoad(Islam2021Dimensionality_V1_Shape)
+-    pool['Islam2021-texture_v1_dimensionality'] = LazyLoad(Islam2021Dimensionality_V1_Texture)
+-    pool['Islam2021-shape_v2_dimensionality'] = LazyLoad(Islam2021Dimensionality_V2_Shape)
+-    pool['Islam2021-texture_v2_dimensionality'] = LazyLoad(Islam2021Dimensionality_V2_Texture)
+-    pool['Islam2021-shape_v4_dimensionality'] = LazyLoad(Islam2021Dimensionality_V4_Shape)
+-    pool['Islam2021-texture_v4_dimensionality'] = LazyLoad(Islam2021Dimensionality_V4_Texture)
+-    pool['Islam2021-shape_it_dimensionality'] = LazyLoad(Islam2021Dimensionality_IT_Shape)
+-    pool['Islam2021-texture_it_dimensionality'] = LazyLoad(Islam2021Dimensionality_IT_Texture)
+-
+-    return pool
+-
+-
+-def _public_benchmark_pool():
+-    """
+-    Benchmarks that are publicly usable, but are not used for the website.
+-    """
+-    pool = {}
+-    # neural benchmarks
+-    from .public_benchmarks import FreemanZiembaV1PublicBenchmark, FreemanZiembaV2PublicBenchmark, \
+-        MajajHongV4PublicBenchmark, MajajHongITPublicBenchmark
+-    pool['movshon.FreemanZiemba2013public.V1-pls'] = LazyLoad(FreemanZiembaV1PublicBenchmark)
+-    pool['movshon.FreemanZiemba2013public.V2-pls'] = LazyLoad(FreemanZiembaV2PublicBenchmark)
+-    pool['dicarlo.MajajHong2015public.V4-pls'] = LazyLoad(MajajHongV4PublicBenchmark)
+-    pool['dicarlo.MajajHong2015public.IT-pls'] = LazyLoad(MajajHongITPublicBenchmark)
+-
+-    # behavioral benchmarks
+-    from .public_benchmarks import RajalinghamMatchtosamplePublicBenchmark
+-    pool['dicarlo.Rajalingham2018public-i2n'] = LazyLoad(RajalinghamMatchtosamplePublicBenchmark)
+-
+-    return pool
+-
+-
+-evaluation_benchmark_pool = _evaluation_benchmark_pool()
+-engineering_benchmark_pool = _engineering_benchmark_pool()
+-experimental_benchmark_pool = _experimental_benchmark_pool()
+-public_benchmark_pool = _public_benchmark_pool()
+-
+-
+-# make sure no identifiers overlap
+-def check_all_disjoint(*pools):
+-    union = list(itertools.chain([pool.keys() for pool in pools]))
+-    duplicates = set([identifier for identifier in union if union.count(identifier) > 1])
+-    if duplicates:
+-        raise ValueError(f"Duplicate identifiers in pools: {duplicates}")
+-
+-
+-check_all_disjoint(evaluation_benchmark_pool, engineering_benchmark_pool,
+-                   experimental_benchmark_pool, public_benchmark_pool)
+-
+-# engineering benchmarks are part of both the public as well as the private evaluation pools
+-public_benchmark_pool = {**public_benchmark_pool, **engineering_benchmark_pool}
+-evaluation_benchmark_pool = {**evaluation_benchmark_pool}
+-# provide unifying pool
+-benchmark_pool = {**public_benchmark_pool, **engineering_benchmark_pool,
+-                  **experimental_benchmark_pool, **evaluation_benchmark_pool}
++class BenchmarkPool(dict):
++    def __init__(self):
++        super(BenchmarkPool, self).__init__()
++        # local imports to avoid circular imports
++        # neural benchmarks
++        from .majaj2015 import DicarloMajaj2015V4PLS, DicarloMajaj2015ITPLS, \
++            DicarloMajaj2015V4Mask, DicarloMajaj2015ITMask, \
++            DicarloMajaj2015V4RDM, DicarloMajaj2015ITRDM
++        self['dicarlo.Majaj2015.V4-pls'] = LazyLoad(DicarloMajaj2015V4PLS)
++        self['dicarlo.Majaj2015.IT-pls'] = LazyLoad(DicarloMajaj2015ITPLS)
++        self['dicarlo.Majaj2015.V4-mask'] = LazyLoad(DicarloMajaj2015V4Mask)
++        self['dicarlo.Majaj2015.IT-mask'] = LazyLoad(DicarloMajaj2015ITMask)
++        self['dicarlo.Majaj2015.V4-rdm'] = LazyLoad(DicarloMajaj2015V4RDM)
++        self['dicarlo.Majaj2015.IT-rdm'] = LazyLoad(DicarloMajaj2015ITRDM)
++        from .freemanziemba2013 import MovshonFreemanZiemba2013V1PLS, MovshonFreemanZiemba2013V2PLS, \
++            MovshonFreemanZiemba2013V1RDM, MovshonFreemanZiemba2013V2RDM
++        self['movshon.FreemanZiemba2013.V1-pls'] = LazyLoad(MovshonFreemanZiemba2013V1PLS)
++        self['movshon.FreemanZiemba2013.V2-pls'] = LazyLoad(MovshonFreemanZiemba2013V2PLS)
++        self['movshon.FreemanZiemba2013.V1-rdm'] = LazyLoad(MovshonFreemanZiemba2013V1RDM)
++        self['movshon.FreemanZiemba2013.V2-rdm'] = LazyLoad(MovshonFreemanZiemba2013V2RDM)
++        from .cadena2017 import ToliasCadena2017PLS, ToliasCadena2017Mask
++        self['tolias.Cadena2017-pls'] = LazyLoad(ToliasCadena2017PLS)
++        self['tolias.Cadena2017-mask'] = LazyLoad(ToliasCadena2017Mask)
++        from .kar2019 import DicarloKar2019OST
++        self['dicarlo.Kar2019-ost'] = LazyLoad(DicarloKar2019OST)
++
++        # behavioral benchmarks
++        from .rajalingham2018 import DicarloRajalingham2018I2n
++        self['dicarlo.Rajalingham2018-i2n'] = LazyLoad(DicarloRajalingham2018I2n)
++
++        # engineering (ML) benchmarks
++        from .imagenet import Imagenet2012
++        self['fei-fei.Deng2009-top1'] = LazyLoad(Imagenet2012)
++
++
++benchmark_pool = BenchmarkPool()
+ 
+ 
+ @cache()
+diff --git a/brainscore/benchmarks/_neural_common.py b/brainscore/benchmarks/_neural_common.py
+index a293ec5..0a0e404 100644
+--- a/brainscore/benchmarks/_neural_common.py
++++ b/brainscore/benchmarks/_neural_common.py
+@@ -1,13 +1,11 @@
+ import numpy as np
+ 
+-from brainio.assemblies import array_is_element, walk_coords
++from brainio_base.assemblies import array_is_element, walk_coords
+ from brainscore.benchmarks import BenchmarkBase, ceil_score
+-from brainscore.benchmarks.screen import place_on_screen
+-from brainscore.model_interface import BrainModel
+ 
+ 
+ class NeuralBenchmark(BenchmarkBase):
+-    def __init__(self, identifier, assembly, similarity_metric, visual_degrees, number_of_trials, **kwargs):
++    def __init__(self, identifier, assembly, similarity_metric, **kwargs):
+         super(NeuralBenchmark, self).__init__(identifier=identifier, **kwargs)
+         self._assembly = assembly
+         self._similarity_metric = similarity_metric
+@@ -16,15 +14,10 @@ class NeuralBenchmark(BenchmarkBase):
+         self.region = region[0]
+         timebins = timebins_from_assembly(self._assembly)
+         self.timebins = timebins
+-        self._visual_degrees = visual_degrees
+-        self._number_of_trials = number_of_trials
+ 
+-    def __call__(self, candidate: BrainModel):
+-        candidate.start_recording(self.region, time_bins=self.timebins,
+-                                  recording_type=BrainModel.RecordingType.exact)
+-        stimulus_set = place_on_screen(self._assembly.stimulus_set, target_visual_degrees=candidate.visual_degrees(),
+-                                       source_visual_degrees=self._visual_degrees)
+-        source_assembly = candidate.look_at(stimulus_set, number_of_trials=self._number_of_trials)
++    def __call__(self, candidate):
++        candidate.start_recording(self.region, time_bins=self.timebins)
++        source_assembly = candidate.look_at(self._assembly.stimulus_set)
+         if 'time_bin' in source_assembly.dims:
+             source_assembly = source_assembly.squeeze('time_bin')  # static case for these benchmarks
+         raw_score = self._similarity_metric(source_assembly, self._assembly)
+diff --git a/brainscore/benchmarks/_properties_common.py b/brainscore/benchmarks/_properties_common.py
+deleted file mode 100644
+index b115b13..0000000
+--- a/brainscore/benchmarks/_properties_common.py
++++ /dev/null
+@@ -1,424 +0,0 @@
+-import numpy as np
+-
+-from brainio.assemblies import DataAssembly
+-from brainscore import get_stimulus_set
+-from brainscore.benchmarks import BenchmarkBase, ceil_score
+-from brainscore.benchmarks.screen import place_on_screen
+-from brainscore.model_interface import BrainModel
+-from result_caching import store
+-
+-BLANK_STIM_NAME = 'dicarlo.Marques2020_blank'
+-RF_STIM_NAME = 'dicarlo.Marques2020_receptive_field'
+-ORIENTATION_STIM_NAME = 'dicarlo.Marques2020_orientation'
+-
+-RF_NUMBER_OF_TRIALS = 10
+-ORIENTATION_NUMBER_OF_TRIALS = 20
+-RF_THRSH = 0.05
+-RF_DELTA = 0.15
+-MEDIAN_MAX_RESP = {'V1': 33.8}
+-MEDIAN_SPONTANEOUS = {'V1': 0.82}
+-SINGLE_MAX_RESP = {'V1': 243.1}
+-RESP_THRESH = {'V1': 5}
+-LOW_INTERVAL_MAX_RESP = {'V1': 11.14}
+-HIGH_INTERVAL_MAX_RESP = {'V1': 86.27}
+-LOW_INTERVAL_PERCENTILE = 10
+-HIGH_INTERVAL_PERCENTILE = 90
+-
+-
+-class PropertiesBenchmark(BenchmarkBase):
+-    def __init__(self, identifier, assembly, neuronal_property, similarity_metric, timebins, **kwargs):
+-        super(PropertiesBenchmark, self).__init__(identifier=identifier, **kwargs)
+-        self._assembly = assembly
+-        self._neuronal_property = neuronal_property
+-        self._similarity_metric = similarity_metric
+-        region = np.unique(self._assembly['region'])
+-        assert len(region) == 1
+-        self.region = region[0]
+-        self._number_of_trials = int(self._assembly.attrs['number_of_trials'])
+-        self._visual_degrees = self._assembly.stimulus_set['degrees']
+-        self.timebins = timebins
+-
+-    def __call__(self, model: BrainModel):
+-        model_identifier = model.identifier
+-        model.start_recording(self.region, time_bins=self.timebins)
+-        stim_pos = get_stimulus_position(self._assembly.stimulus_set)
+-        in_rf = filter_receptive_fields(model_identifier=model_identifier, model=model, region=self.region,
+-                                        pos=stim_pos)
+-
+-        responses = get_firing_rates(model_identifier=model_identifier, model=model, region=self.region,
+-                                     stimulus_identifier=self._assembly.stimulus_set.identifier,
+-                                     number_of_trials=self._number_of_trials, in_rf=in_rf)
+-        baseline = get_firing_rates(model_identifier=model_identifier, model=model, region=self.region,
+-                                    stimulus_identifier=BLANK_STIM_NAME,
+-                                    number_of_trials=self._number_of_trials, in_rf=in_rf)
+-
+-        model_property = self._neuronal_property(model_identifier=model_identifier, responses=responses,
+-                                                 baseline=baseline)
+-        raw_score = self._similarity_metric(model_property, self._assembly)
+-        ceiling = self._ceiling_func(self._assembly)
+-        return ceil_score(raw_score, ceiling)
+-
+-    @property
+-    def ceiling(self):
+-        return self._ceiling_func(self._assembly)
+-
+-
+-
+-@store(identifier_ignore=['model', 'in_rf'])
+-def get_firing_rates(model_identifier, model, region, stimulus_identifier, number_of_trials, in_rf):
+-    affine_transformation = firing_rates_affine(model_identifier=model_identifier, model=model, region=region)
+-    affine_transformation = affine_transformation.values
+-
+-    activations = record_from_model(model, stimulus_identifier, number_of_trials)
+-    activations = activations[in_rf]
+-    activations.values[activations.values < 0] = 0
+-
+-    activations = affine_transformation[0] * activations + affine_transformation[1]
+-    activations.values[activations.values < 0] = 0
+-    return activations
+-
+-
+-def record_from_model(model: BrainModel, stimulus_identifier, number_of_trials):
+-    stimulus_set = get_stimulus_set(stimulus_identifier)
+-    stimulus_set = place_on_screen(stimulus_set, target_visual_degrees=model.visual_degrees())
+-    activations = model.look_at(stimulus_set, number_of_trials)
+-    if 'time_bin' in activations.dims:
+-        activations = activations.squeeze('time_bin')  # static case for these benchmarks
+-    if not activations.values.flags['WRITEABLE']:
+-        activations.values.setflags(write=1)
+-    return activations
+-
+-
+-def get_stimulus_position(stimulus_set):
+-    position_y = np.array(sorted(set(stimulus_set.position_y.values)))
+-    position_x = np.array(sorted(set(stimulus_set.position_x.values)))
+-    assert len(position_x) == 1 and len(position_y) == 1
+-    return np.array([position_y[0], position_x[0]])
+-
+-
+-def filter_receptive_fields(model_identifier, model, region, pos, rf_delta=RF_DELTA):
+-    rf_pos, rf_map = map_receptive_field_locations(model_identifier=model_identifier, model=model, region=region)
+-    rf_pos = rf_pos.values
+-    d = np.linalg.norm(rf_pos - pos, axis=1)
+-    in_rf = np.squeeze(np.argwhere(d <= rf_delta))
+-    return in_rf
+-
+-
+-@store(identifier_ignore=['model'])
+-def map_receptive_field_locations(model_identifier, model: BrainModel, region):
+-    blank_activations = record_from_model(model, BLANK_STIM_NAME, RF_NUMBER_OF_TRIALS)
+-    blank_activations = blank_activations.values
+-    blank_activations[blank_activations < 0] = 0
+-
+-    rf_activations = record_from_model(model, RF_STIM_NAME, RF_NUMBER_OF_TRIALS)
+-
+-    _assert_grating_activations(rf_activations)
+-
+-    position_y = np.array(sorted(set(rf_activations.position_y.values)))
+-    position_x = np.array(sorted(set(rf_activations.position_x.values)))
+-    n_neuroids = rf_activations.values.shape[0]
+-    neuroid_ids = rf_activations.neuroid.values
+-    rf_activations = rf_activations.values
+-    rf_activations[rf_activations < 0] = 0
+-
+-    rf_activations = rf_activations.reshape(n_neuroids, len(position_y), len(position_x), -1)
+-    rf_activations = rf_activations - np.reshape(blank_activations, [n_neuroids] +
+-                                                 [1] * (len(rf_activations.shape) - 1))
+-
+-    rf_map = rf_activations.max(axis=3)
+-
+-    rf_map[rf_map < 0] = 0
+-
+-    max_resp = np.max(rf_map.reshape(n_neuroids, -1), axis=1)
+-
+-    rf_pos = np.zeros((n_neuroids, 2))
+-    rf_pos[:] = np.nan
+-
+-    for n in range(n_neuroids):
+-        exc_pos = rf_map[n] > max_resp[n] * RF_THRSH
+-
+-        if max_resp[n] > 0:
+-            # rf centroid
+-            rf_coord = np.sum(
+-                np.argwhere(exc_pos) * np.repeat(np.expand_dims(rf_map[n, exc_pos], axis=1), 2, axis=1),
+-                axis=0) / np.sum(np.repeat(np.expand_dims(rf_map[n, exc_pos], axis=1), 2, axis=1), axis=0)
+-            # interpolates pos of rf centroid
+-            rf_pos[n, 0] = np.interp(rf_coord[0], np.arange(len(position_y)), position_y)
+-            rf_pos[n, 1] = np.interp(rf_coord[1], np.arange(len(position_x)), position_x)
+-
+-    rf_pos = DataAssembly(rf_pos, coords={'neuroid': neuroid_ids, 'axis': ['y', 'x']}, dims=['neuroid', 'axis'])
+-    rf_map = DataAssembly(rf_map, coords={'neuroid': neuroid_ids, 'position_y': position_y, 'position_x': position_x},
+-                          dims=['neuroid', 'position_y', 'position_x'])
+-
+-    return rf_pos, rf_map
+-
+-
+-@store(identifier_ignore=['model'])
+-def firing_rates_affine(model_identifier, model: BrainModel, region):
+-    blank_activations = record_from_model(model, BLANK_STIM_NAME, ORIENTATION_NUMBER_OF_TRIALS)
+-    orientation_activations = record_from_model(model, ORIENTATION_STIM_NAME, ORIENTATION_NUMBER_OF_TRIALS)
+-
+-    blank_activations = blank_activations.values
+-    blank_activations[blank_activations < 0] = 0
+-
+-    _assert_grating_activations(orientation_activations)
+-
+-    stim_pos = get_stimulus_position(orientation_activations)
+-
+-    in_rf = filter_receptive_fields(model_identifier=model_identifier, model=model, region=region, pos=stim_pos)
+-    n_neuroids = len(in_rf)
+-
+-    spatial_frequency = sorted(set(orientation_activations.spatial_frequency.values))
+-    orientation = sorted(set(orientation_activations.orientation.values))
+-    phase = sorted(set(orientation_activations.phase.values))
+-    nStim = orientation_activations.values.shape[1]
+-    n_cycles = nStim // (len(phase) * len(orientation) * len(spatial_frequency))
+-
+-    orientation_activations = orientation_activations.values
+-    orientation_activations[orientation_activations < 0] = 0
+-
+-    blank_activations = blank_activations[in_rf]
+-    orientation_activations = orientation_activations[in_rf]
+-    orientation_activations = orientation_activations.reshape((n_neuroids, n_cycles, len(spatial_frequency),
+-                                                               len(orientation), len(phase)))
+-    orientation_activations = orientation_activations.mean(axis=4).reshape((n_neuroids, -1)).max(axis=1)
+-
+-    responsive_neurons = (orientation_activations - blank_activations[:, 0]) >  \
+-                         (RESP_THRESH[region] / SINGLE_MAX_RESP[region]) * \
+-                         np.max(orientation_activations - blank_activations[:, 0])
+-
+-    median_baseline = np.median(blank_activations[responsive_neurons])
+-    median_activations = np.median(orientation_activations[responsive_neurons])
+-
+-    slope = (MEDIAN_MAX_RESP[region] - MEDIAN_SPONTANEOUS[region]) / \
+-            (median_activations - median_baseline)
+-    offset = MEDIAN_SPONTANEOUS[region] - slope * median_baseline
+-
+-    affine_transformation = np.array([slope, offset])
+-    affine_transformation = DataAssembly(affine_transformation)
+-
+-    return affine_transformation
+-
+-
+-def _assert_grating_activations(activations):
+-    position_y = np.array(sorted(set(activations.position_y.values)))
+-    position_x = np.array(sorted(set(activations.position_x.values)))
+-    contrast = np.array(sorted(set(activations.contrast.values)))
+-    radius = np.array(sorted(set(activations.radius.values)))
+-    spatial_frequency = np.array(sorted(set(activations.spatial_frequency.values)))
+-    orientation = np.array(sorted(set(activations.orientation.values)))
+-    phase = np.array(sorted(set(activations.phase.values)))
+-    nStim = activations.values.shape[1]
+-
+-    if nStim == len(position_x) * len(position_y) * len(contrast) * len(radius) * len(spatial_frequency) * \
+-            len(orientation) * len(phase):
+-        assert np.sum(np.tile(phase, len(position_y) * len(position_x) * len(contrast) * len(radius) *
+-                              len(spatial_frequency) * len(orientation)) == activations.phase.values) == nStim
+-        assert np.sum(np.tile(np.repeat(orientation, len(phase)), len(position_y) * len(position_x) * len(contrast) *
+-                              len(radius) * len(spatial_frequency)) == activations.orientation.values) == nStim
+-        assert np.sum(np.tile(np.repeat(spatial_frequency, len(phase) * len(orientation)), len(position_y) *
+-                              len(position_x) * len(contrast) * len(radius)) == activations.spatial_frequency.values) == nStim
+-        assert np.sum(np.tile(np.repeat(radius, len(phase) * len(orientation) * len(spatial_frequency)), len(position_y) *
+-                              len(position_x) * len(contrast)) == activations.radius.values) == nStim
+-        assert np.sum(np.tile(np.repeat(contrast, len(phase) * len(orientation) * len(spatial_frequency) * len(radius)),
+-                              len(position_y) * len(position_x)) == activations.contrast.values) == nStim
+-        assert np.sum(np.tile(np.repeat(position_x, len(phase) * len(orientation) * len(spatial_frequency) * len(radius) *
+-                                        len(contrast)), len(position_y)) == activations.position_x.values) == nStim
+-        assert np.sum(np.repeat(position_y, len(phase) * len(orientation) * len(spatial_frequency) * len(radius) *
+-                                len(contrast) * len(position_x)) == activations.position_y.values) == nStim
+-    else:
+-        n_cycles = nStim // (len(phase) * len(orientation) * len(spatial_frequency))
+-        assert np.sum(np.tile(phase, n_cycles * len(spatial_frequency) * len(orientation)) == activations.phase.values)\
+-               == nStim
+-        assert np.sum(np.tile(np.repeat(orientation, len(phase)), n_cycles * len(spatial_frequency)) ==
+-                      activations.orientation.values) == nStim
+-        assert np.sum(np.tile(np.repeat(spatial_frequency, len(phase) * len(orientation)), n_cycles) ==
+-                      activations.spatial_frequency.values) == nStim
+-
+-
+-def _assert_texture_activations(activations):
+-    activations = activations.sortby(['type', 'family', 'sample'])
+-
+-    type = np.array(sorted(set(activations.type.values)))
+-    family = np.array(sorted(set(activations.family.values)))
+-    sample = np.array(sorted(set(activations.sample.values)))
+-
+-    n_type = len(type)
+-    n_family = len(family)
+-    n_sample = len(sample)
+-    nStim = n_type * n_family * n_sample
+-
+-    assert np.sum(np.tile(sample, n_type * n_family) ==
+-                  activations.sample.values) == nStim
+-    assert np.sum(np.tile(np.repeat(family, n_sample), n_type) ==
+-                  activations.family.values) == nStim
+-    assert np.sum(np.repeat(type, n_family * n_sample) ==
+-                  activations.type.values) == nStim
+-
+-
+-def calc_circular_variance(orientation_curve, orientation):
+-    vect_sum = orientation_curve.dot(np.exp(1j * 2 * orientation / 180 * np.pi))
+-    osi = np.absolute(vect_sum) / np.sum(np.absolute(orientation_curve))
+-    return 1 - osi
+-
+-
+-def calc_bandwidth(orientation_curve, orientation, filt_type='hanning', thrsh=0.5, mode='full'):
+-    from scipy.interpolate import UnivariateSpline
+-    or_ext = np.hstack((orientation - 180, orientation, orientation + 180))
+-    or_curve_ext = np.tile(orientation_curve, (1, 3))
+-
+-    if filt_type == 'hanning':
+-        w = np.array([0, 2 / 5, 1, 2 / 5, 0])
+-    elif filt_type == 'flat':
+-        w = np.array([1, 1, 1, 1, 1])
+-    elif filt_type == 'smooth':
+-        w = np.array([0, 1 / 5, 1, 1 / 5, 0])
+-
+-    if filt_type is not None:
+-        or_curve_ext = np.convolve(w / w.sum(), np.squeeze(or_curve_ext), mode='same')
+-    or_curve_spl = UnivariateSpline(or_ext, or_curve_ext, s=0.)
+-
+-    or_full = np.linspace(-180, 359, 540)
+-    or_curve_full = or_curve_spl(or_full)
+-    pref_or_fit = np.argmax(or_curve_full[180:360])
+-    or_curve_max = or_curve_full[pref_or_fit + 180]
+-
+-    try:
+-        less = np.where(or_curve_full <= or_curve_max * thrsh)[0][:]
+-        p1 = or_full[less[np.where(less < pref_or_fit + 180)[0][-1]]]
+-        p2 = or_full[less[np.where(less > pref_or_fit + 180)[0][0]]]
+-        bw = (p2 - p1)
+-        if bw > 180:
+-            bw = np.nan
+-    except:
+-        bw = np.nan
+-    if mode is 'half':
+-        bw = bw / 2
+-    return bw, pref_or_fit, or_full[180:360], or_curve_full[180:360]
+-
+-
+-def calc_orthogonal_preferred_ratio(orientation_curve, orientation):
+-    pref_orientation = np.argmax(orientation_curve)
+-    orth_orientation = pref_orientation + int(len(orientation) / 2)
+-    if orth_orientation >= len(orientation):
+-        orth_orientation -= len(orientation)
+-    opr = orientation_curve[orth_orientation] / orientation_curve[pref_orientation]
+-    return opr
+-
+-
+-def calc_spatial_frequency_tuning(y, sf, filt_type='triangle', thrsh=0.707, mode='ratio'):
+-    from scipy.interpolate import UnivariateSpline
+-    sf_log = np.log2(sf)
+-    sf_values = y
+-    sf_log_full = np.linspace(sf_log[0], sf_log[-1], num=100, endpoint=True)
+-
+-    if filt_type == 'hanning':
+-        w = np.array([0, 2/5, 1, 2/5, 0])
+-    elif filt_type == 'flat':
+-        w = np.array([1, 1, 1, 1, 1])
+-    elif filt_type == 'smooth':
+-        w = np.array([0, 1/5, 1, 1/5, 0])
+-    elif filt_type == 'triangle':
+-        w = np.array([0.5, 0.75, 1, 0.75, 0.5])
+-
+-    if filt_type is not None:
+-        sf_values = np.convolve(w / w.sum(), np.squeeze(np.concatenate((np.array([sf_values[0], sf_values[0]]),
+-                                                                        sf_values, np.array([sf_values[-1],
+-                                                                                             sf_values[-1]])))),
+-                                mode='valid')
+-    sf_curve_spl = UnivariateSpline(sf_log, sf_values, s=0.)
+-
+-    sf_curve_full = sf_curve_spl(sf_log_full)
+-
+-    pref_sf_fit = np.argmax(sf_curve_full)
+-    sf_pk_log = sf_log_full[pref_sf_fit]
+-
+-    sf_curve_max = sf_curve_full[pref_sf_fit]
+-    less = np.where(sf_curve_full <= sf_curve_max * thrsh)[0][:]
+-
+-    try:
+-        p1_log = sf_log_full[less[np.where(less < pref_sf_fit)[0][-1]]]
+-    except:
+-        p1_log = np.nan
+-    try:
+-        p2_log = sf_log_full[less[np.where(less > pref_sf_fit)[0][0]]]
+-    except:
+-        p2_log = np.nan
+-
+-    if mode == 'oct':
+-        bw = (2 ** p2_log) / (2 ** p1_log) - 1
+-    else:
+-        bw = (2 ** p1_log) / (2 ** p2_log) * 100
+-
+-    values_fitted = sf_curve_spl(np.log2(sf))
+-    ss_res = np.sum((y - values_fitted) ** 2)
+-    ss_tot = np.sum((y - np.mean(y)) ** 2)
+-    r2 = 1 - (ss_res / ss_tot)
+-
+-    return bw, np.power(2, sf_pk_log), r2, np.power(2, sf_log_full), sf_curve_full
+-
+-
+-def calc_size_tuning(size_curve, radius):
+-    pref_rad = np.argmax(size_curve)
+-    surr_peak_r = np.max(size_curve)
+-    surr_plateau_r = size_curve[-1]
+-    ssi = (surr_peak_r - surr_plateau_r) / surr_peak_r
+-    if surr_peak_r > 0 and ssi > 0.1:
+-        gsf = radius[np.where(size_curve >= (surr_peak_r * 0.95))[0][0]] * 2
+-        thrsh = surr_plateau_r + 0.05 * np.absolute(surr_plateau_r)
+-        surr_diam = radius[np.where(np.logical_and(size_curve <= thrsh, radius > radius[pref_rad]))[0][0]] * 2
+-        surr_gsf_ratio = surr_diam / gsf
+-    else:
+-        gsf, surr_diam, surr_gsf_ratio = np.nan, np.nan, np.nan
+-
+-    return gsf, surr_diam, surr_gsf_ratio, ssi
+-
+-
+-def calc_texture_modulation(response):
+-    texture_modulation_family = (response[1, :] - response[0, :]) / (response[1, :] + response[0, :])
+-    texture_modulation = np.nanmean(texture_modulation_family)
+-    return texture_modulation, texture_modulation_family
+-
+-
+-def calc_sparseness(response):
+-    response = response.reshape(-1)
+-    n_stim = response.shape[0]
+-    sparseness = (1 - ((response.sum() / n_stim) ** 2) / ((response ** 2).sum() / n_stim)) / (1 - 1 / n_stim)
+-    return sparseness
+-
+-
+-def calc_variance_ratio(response):
+-    residual_ms, sample_ms, family_ms = calc_variance(response)
+-    response_shape = response.shape
+-    if len(response_shape) == 3:
+-        residual_variance = residual_ms
+-        sample_variance = (sample_ms - residual_ms) / response_shape[2]
+-        family_variance = (family_ms - sample_ms) / (response_shape[2]*response_shape[1])
+-    else:
+-        residual_variance = 0
+-        sample_variance = sample_ms
+-        family_variance = (family_ms - sample_ms) / response_shape[1]
+-    total_variance = residual_variance + sample_variance + family_variance
+-    variance_ratio = (family_variance / total_variance + 0.02) / (sample_variance / total_variance + 0.02)
+-    return variance_ratio, sample_variance / total_variance, family_variance / total_variance
+-
+-
+-def calc_variance(response):
+-    response_shape = response.shape
+-    if len(response_shape) == 3:
+-        a, b, n = response_shape
+-        sample_mean = response.mean(axis=2)
+-        family_mean = sample_mean.mean(axis=1)
+-        all_mean = family_mean.mean()
+-        residual_ms = np.sum((response - sample_mean.reshape(a, b, 1)) ** 2) / (a * b * (n - 1))
+-        sample_ms = n * np.sum((sample_mean - family_mean.reshape(a, 1)) ** 2) / (a * (b - 1))
+-        family_ms = b*n*np.sum((family_mean - all_mean) ** 2) / (a - 1)
+-    else:
+-        a, b = response_shape
+-        sample_mean = response
+-        family_mean = sample_mean.mean(axis=1)
+-        all_mean = family_mean.mean()
+-        residual_ms = np.nan
+-        sample_ms = np.sum((sample_mean - family_mean.reshape(a, 1)) ** 2) / (a * (b - 1))
+-        family_ms = b * np.sum((family_mean - all_mean) ** 2) / (a - 1)
+-    return residual_ms, sample_ms, family_ms
+diff --git a/brainscore/benchmarks/afraz2006.py b/brainscore/benchmarks/afraz2006.py
+deleted file mode 100644
+index 04ebd3a..0000000
+--- a/brainscore/benchmarks/afraz2006.py
++++ /dev/null
+@@ -1,229 +0,0 @@
+-import logging
+-
+-import numpy as np
+-import scipy.optimize
+-from numpy.random import RandomState
+-from scipy.optimize import fsolve
+-from tqdm import tqdm
+-from xarray import DataArray
+-
+-from brainio.assemblies import merge_data_arrays, walk_coords, DataAssembly
+-from brainscore.metrics.difference_of_correlations import DifferenceOfCorrelations
+-from data_packaging.afraz2006 import train_test_stimuli, collect_assembly
+-from brainscore.benchmarks import BenchmarkBase
+-from brainscore.metrics.significant_match import SignificantCorrelation
+-from brainscore.model_interface import BrainModel
+-from brainscore.utils import fullname
+-
+-BIBTEX = """@article{Afraz2006,
+-                abstract = {The inferior temporal cortex (IT) of primates is thought to be the final visual area in the ventral stream of cortical areas responsible for object recognition. Consistent with this hypothesis, single IT neurons respond selectively to highly complex visual stimuli such as faces. However, a direct causal link between the activity of face-selective neurons and face perception has not been demonstrated. In the present study of macaque monkeys, we artificially activated small clusters of IT neurons by means of electrical microstimulation while the monkeys performed a categorization task, judging whether noisy visual images belonged to 'face' or 'non-face' categories. Here we show that microstimulation of face-selective sites, but not other sites, strongly biased the monkeys' decisions towards the face category. The magnitude of the effect depended upon the degree of face selectivity of the stimulation site, the size of the stimulated cluster of face-selective neurons, and the exact timing of microstimulation. Our results establish a causal relationship between the activity of face-selective neurons and face perception.},
+-                author = {Afraz, Seyed Reza and Kiani, Roozbeh and Esteky, Hossein},
+-                doi = {10.1038/nature04982},
+-                isbn = {1476-4687 (Electronic) 0028-0836 (Linking)},
+-                issn = {14764687},
+-                journal = {Nature},
+-                month = {aug},
+-                number = {7103},
+-                pages = {692--695},
+-                pmid = {16878143},
+-                publisher = {Nature Publishing Group},
+-                title = {{Microstimulation of inferotemporal cortex influences face categorization}},
+-                url = {http://www.nature.com/articles/nature04982},
+-                volume = {442},
+-                year = {2006}
+-                }"""
+-
+-STIMULATION_PARAMETERS = {
+-    # "Microstimulation consisted of bipolar current pulses of 50mA delivered at 200 Hz (refs 19, 20).
+-    # The stimulation pulses were biphasic, with the cathodal pulse leading. Each pulse was 0.2 ms in
+-    # duration with 0.1 ms between the cathodal and anodal phase. [...] Stimulating pulses were
+-    # delivered for 50 ms in one of three time periods following onset of the visual stimulus:
+-    # 0–50 ms, 50–100 ms or 100–150 ms."
+-    # We here focus on the 100-150ms condition.
+-    'current_pulse_mA': 50,
+-    'pulse_type': 'biphasic',
+-    'pulse_rate_Hz': 200,
+-    'pulse_duration_ms': 0.2,
+-    'pulse_interval_ms': 0.1,
+-    'stimulation_onset_ms': 100,
+-    'stimulation_duration_ms': 50,
+-}
+-STIMULATION_PARAMETERS = frozenset(STIMULATION_PARAMETERS.items())  # make immutable so that params cannot be changed
+-
+-
+-def Afraz2006FaceDependentShiftSignificant():
+-    return _Afraz2006(metric_identifier='shift_significant',
+-                      metric=SignificantCorrelation(x_coord='face_selectivity', ignore_nans=True))
+-
+-
+-def Afraz2006FaceDependentShift():
+-    return _Afraz2006(metric_identifier='face_dependent_shift',
+-                      metric=DifferenceOfCorrelations(correlation_variable='face_selectivity'))
+-
+-
+-class _Afraz2006(BenchmarkBase):
+-    def __init__(self, metric_identifier, metric):
+-        self._logger = logging.getLogger(fullname(self))
+-        self._assembly, self._fitting_stimuli = self._load_assembly()
+-        self._metric = metric
+-        super(_Afraz2006, self).__init__(
+-            identifier='esteky.Afraz2006-' + metric_identifier,
+-            ceiling_func=None,
+-            version=1, parent='IT',
+-            bibtex=BIBTEX)
+-
+-    def _load_assembly(self):
+-        assembly = collect_assembly()
+-        # stimuli
+-        train_stimuli, test_stimuli = train_test_stimuli()
+-        assembly.attrs['stimulus_set'] = test_stimuli
+-        return assembly, train_stimuli
+-
+-    def __call__(self, candidate: BrainModel):
+-        # record to later determine face-selectivity
+-        candidate.start_recording('IT', time_bins=[(50, 100)], recording_type=BrainModel.RecordingType.exact)
+-        recordings = candidate.look_at(self._assembly.stimulus_set)
+-
+-        # "We trained two adult macaque monkeys to perform a face/non-face categorization task
+-        # upon viewing single images from one or the other category that were systematically degraded
+-        # by varying amounts of visual signal."
+-        # train on face/non-face categorization task
+-        candidate.start_task(BrainModel.Task.probabilities, fitting_stimuli=self._fitting_stimuli)
+-        nonstimulated_behavior = candidate.look_at(self._assembly.stimulus_set)
+-
+-        # "Altogether, we assessed stimulus selectivity at 348 recording sites in 86 electrode penetrations in
+-        # two monkeys (46 and 40 in monkeys FR and KH, respectively).
+-        # We conducted microstimulation experiments at 31 face-selective sites and 55 non-selective sites,
+-        # while the monkey performed the object categorization task.
+-        # Selectivity for faces was defined as having a d' value > 1."
+-
+-        # "Recordings were made on an evenly spaced grid, with 1-mm intervals between penetrations over a wide region of
+-        # the lower bank of STS and TEa cortices (left hemisphere 14 to 21mm anterior to interauricular line in FR,
+-        # and right hemisphere 14 to 20mm anterior to interauricular line in KH). The recording positions were
+-        # determined stereotaxically by referring to magnetic resonance images acquired before the surgery.
+-        # Multiunit neural responses were recorded through tungsten microelectrodes (0.4–1.0MΩ). Neural selectivity of
+-        # neighbouring sites within ±500mm from the stimulated site along each recording track was determined as the
+-        # electrode was advanced. The recorded positions were separated by at least 150mm (mean, 296mm). After
+-        # determining the neighbourhood selectivity, the electrode tip was positioned in the middle of the recorded
+-        # area and remained there through the rest of the experiment. The neural selectivity in this site was verified
+-        # before starting the categorization task."
+-
+-        # We here randomly sub-select the recordings to match the number of stimulation sites in the experiment, based
+-        # on the assumption that we can compare trend effects even with a random sample.
+-        subselect = 86
+-        random_state = RandomState(1)
+-        neuroid_ids = sorted(recordings['neuroid_id'].values)  # sort to make sure random choice is reproducible
+-        subselected_neuroid_ids = random_state.choice(neuroid_ids, size=subselect, replace=False)
+-        recordings = recordings[{'neuroid': [neuroid_id in subselected_neuroid_ids
+-                                             for neuroid_id in recordings['neuroid_id'].values]}]
+-        stimulation_locations = np.stack((recordings['recording_x'], recordings['recording_y'])).T.tolist()
+-        candidate_behaviors = []
+-        for site, location in enumerate(tqdm(stimulation_locations, desc='stimulation locations')):
+-            candidate.perturb(perturbation=None, target='IT')  # reset
+-            location = np.round(location, decimals=2)
+-            self._logger.debug(f"Stimulating at {location}")
+-            candidate.perturb(perturbation=BrainModel.Perturbation.microstimulation,
+-                              target='IT', perturbation_parameters={
+-                    **dict(STIMULATION_PARAMETERS),
+-                    **{'location': location},
+-                })
+-            behavior = candidate.look_at(self._assembly.stimulus_set)
+-            behavior = behavior.expand_dims('site')
+-            behavior['site_iteration'] = 'site', [site]
+-            behavior['site_x'] = 'site', [location[0]]
+-            behavior['site_y'] = 'site', [location[1]]
+-            behavior = type(behavior)(behavior)  # make sure site is indexed
+-            candidate_behaviors.append(behavior)
+-        candidate_behaviors = merge_data_arrays(candidate_behaviors)
+-        psychometric_shifts = self.characterize_psychometric_shifts(nonstimulated_behavior, candidate_behaviors)
+-
+-        # face selectivities
+-        face_selectivities = determine_face_selectivity(recordings)
+-        self.attach_face_selectivities(psychometric_shifts, face_selectivities[:subselect])
+-
+-        # compare
+-        psychometric_shifts = psychometric_shifts[{'site': [  # ignore nan values
+-            not np.isnan(face_selectivity) for face_selectivity in psychometric_shifts['face_selectivity'].values]}]
+-        score = self._metric(psychometric_shifts, self._assembly)
+-        score.attrs['raw'] = psychometric_shifts
+-        return score
+-
+-    def characterize_psychometric_shifts(self, nonstimulated_behavior, behaviors):
+-        nonstimulated_curve = self.grouped_face_responses(nonstimulated_behavior)
+-        nonstimulated_logistic = self.fit_logistic(x=nonstimulated_curve['label_signal_level'],
+-                                                   y=nonstimulated_curve.values)
+-        nonstimulated_signal_midpoint = self.logistic_midpoint(nonstimulated_logistic)
+-
+-        psychometric_shifts = []
+-        for site in behaviors['site'].values:
+-            # index instead of `.sel` to preserve all site coords
+-            behavior = behaviors[{'site': [s == site for s in behaviors['site'].values]}]
+-            site_coords = {coord: (dims, values) for coord, dims, values in walk_coords(behavior['site'])}
+-            behavior = behavior.squeeze('site')
+-            psychometric_curve = self.grouped_face_responses(behavior)
+-            try:
+-                site_logistic = self.fit_logistic(x=psychometric_curve['label_signal_level'],
+-                                                  y=psychometric_curve.values)
+-                site_midpoint = self.logistic_midpoint(site_logistic)
+-                psychometric_shift = nonstimulated_signal_midpoint - site_midpoint
+-            except (AssertionError, RuntimeError):  # unable to fit function / find midpoint
+-                psychometric_shift = 0
+-            psychometric_shift = DataAssembly([psychometric_shift], coords=site_coords, dims=['site'])
+-            psychometric_shifts.append(psychometric_shift)
+-        psychometric_shifts = merge_data_arrays(psychometric_shifts)
+-        return psychometric_shifts
+-
+-    def attach_face_selectivities(self, psychometric_shifts, face_selectivities):
+-        assert len(psychometric_shifts) == len(face_selectivities)
+-        # assume same ordering
+-        psychometric_shifts['face_selectivity'] = 'site', face_selectivities.values
+-
+-    def grouped_face_responses(self, behavior):
+-        np.testing.assert_array_equal(behavior['choice'], ['face', 'nonface'])
+-        behavior['choose_face'] = 'presentation', behavior.argmax('choice').values
+-        face_responses = DataAssembly(behavior.argmax('choice'), coords={
+-            coord: (dims, values) for coord, dims, values in walk_coords(behavior['presentation'])},
+-                                      dims=['presentation'])
+-        face_responses = 1 - face_responses  # invert so that nonface (0) to face (1)
+-        grouped_face_responses = face_responses.groupby('label_signal_level').mean()
+-        return grouped_face_responses
+-
+-    def fit_logistic(self, x, y):
+-        params, pcov = scipy.optimize.curve_fit(logistic, x, y)
+-        return params
+-
+-    def logistic_midpoint(self, logistic_params, midpoint=0.5, initial_guess=0):
+-        func = lambda x: logistic(x, *logistic_params) - midpoint
+-        solution = fsolve(func, initial_guess)[0]
+-        fit_midpoint = logistic(solution, *logistic_params)
+-        assert np.isclose(fit_midpoint, midpoint), f"Unable to find midpoint: " \
+-                                                   f"{fit_midpoint} (with parameters {logistic_params}) " \
+-                                                   f"is different from target midpoint {midpoint}"
+-        return solution
+-
+-
+-def determine_face_selectivity(recordings):
+-    assert (recordings >= 0).all()
+-    # A d' value of zero indicates indistinguishable responses to faces and non-faces.
+-    # Increasingly positive d' values indicate progressively better selectivity for faces.
+-    # Selectivity for faces was defined as having a d' value > 1.
+-    result = []
+-    for neuroid_id in tqdm(recordings['neuroid_id'].values, desc='neuron face dprime'):
+-        neuron = recordings.sel(neuroid_id=neuroid_id)
+-        neuron = neuron.squeeze()
+-        face_mean, face_variance = mean_var(neuron.sel(image_label='face'))
+-        nonface_mean, nonface_variance = mean_var(neuron.sel(image_label='nonfa
