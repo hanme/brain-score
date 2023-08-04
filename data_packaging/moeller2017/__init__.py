@@ -128,7 +128,8 @@ def _load_training_stimuli():
     Fig. 11g,h; for the abstracted faces and houses from Experiment 4b,
     see Supplementary Fig. 11i,j)."
 
-    We simplify all of this to just training on faces directly, and ignore the basic training for paradigm etc. before.
+    From the excerpt above, I assume training only on faces; other stimuli just tested.
+    I am ignoring the basic training for paradigm etc. before.
 
     :return: StimulusSet Object, same as 'Faces' used in Experiment 1
     """
@@ -140,7 +141,7 @@ def _load_training_stimuli():
         object_ids.append(re.split(r"_", stimulus_id)[1])
         object_names.append('face')
     stimuli = StimulusSet({'stimulus_id': stimulus_ids, 'object_name': object_names, 'object_id': object_ids})
-    stimuli.identifier = 'Moeller2017-Faces'
+    stimuli.identifier = 'moeller2017-Faces'
     stimuli.stimulus_paths = {id: str(path / id) for id in stimulus_ids}
     return stimuli
 

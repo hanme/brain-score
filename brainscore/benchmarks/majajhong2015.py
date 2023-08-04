@@ -123,6 +123,7 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
 
     def _load_assembly(self) -> NeuroidAssembly:
         assembly = brainscore.get_assembly('dicarlo.MajajHong2015').sel(region='IT')
+        print("assembly:", assembly)
         assembly = self.squeeze_time(assembly)
         assembly = self.tissue_update(assembly)
         return assembly

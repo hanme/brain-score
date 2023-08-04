@@ -13,6 +13,7 @@ EXPECTED_CATEGORIES = ['dog', 'bear', 'elephant', 'airplane3', 'chair0']
 def collect_assembly():
     path = Path(__file__).parent / 'Rajalingham2019_data_summary.mat'
     data = scipy.io.loadmat(path)['data_summary']
+    print("Rajalingham2019_data_summary.mat loaded")
     struct = {d[0]: v for d, v in zip(data.dtype.descr, data[0, 0])}
     tasks = [v[0] for v in struct['O2_task_names'][:, 0]]
     tasks_left, tasks_right = zip(*[task.split(' vs. ') for task in tasks])
@@ -107,7 +108,7 @@ def collect_distance_deficit_similarity():
 
 def collect_stimulus_set(contra_visualfield=False):
     # load stimulus_set subsampled from hvm
-    stimulus_set_meta = scipy.io.loadmat('/braintree/home/msch/rr_share_topo/topoDCNN/dat/metaparams.mat')
+    stimulus_set_meta = scipy.io.loadmat('/home/mehrer/projects/perturbations/perturbation_tests/brain-score-perturbation/data_packaging/rajalingham2019/metaparams.mat')
     stimulus_set_ids = stimulus_set_meta['id']
     stimulus_set_ids = [i for i in stimulus_set_ids if len(set(i)) > 1]  # filter empty ids
     stimulus_set = brainscore.get_stimulus_set('dicarlo.hvm')

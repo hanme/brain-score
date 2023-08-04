@@ -16,8 +16,8 @@ from brainio.stimuli import StimulusSet
 
 logger = logging.getLogger(__name__)
 
-source_face_directory = Path('/braintree/data2/active/common/labeled_faces_in_the_wild/')
-source_imagenet_directory = Path('/braintree/data2/active/common/imagenet_raw/train')
+source_face_directory = Path('/work/upschrimpf1/mehrer/datasets/labelled_faces_in_the_wild/lfw-deepfunneled/lfw-deepfunneled')
+source_imagenet_directory = Path('/work/upschrimpf1/mehrer/datasets/imagenet_2012/ILSVRC/Data/CLS-LOC/train')
 source_imagenet_synsets = [  # from https://gist.github.com/fnielsen/4a5c94eaa6dcdf29b7a62d886f540372
     # object synsets that will hopefully not have faces in them
     'n03376595',  # folding chair
