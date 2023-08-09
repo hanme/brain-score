@@ -90,6 +90,9 @@ def train_test_stimuli(size_image_bank=600,
     noisy_train_stimuli = make_noisy(stimuli=train_stimuli, signal_levels=signal_levels,
                                      faces_per_level=train_faces_per_level, nonfaces_per_level=train_nonfaces_per_level)
     assert len(noisy_train_stimuli) == len(signal_levels) * (train_faces_per_level + train_nonfaces_per_level) == 804
+    # rename identifier to keep it manageable
+    noisy_train_stimuli.identifier = 'Afraz2006.train'
+    noisy_test_stimuli.identifier = 'Afraz2006.test'
     return noisy_train_stimuli, noisy_test_stimuli
 
 
