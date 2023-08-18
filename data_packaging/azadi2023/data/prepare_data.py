@@ -26,10 +26,13 @@ from brainio.packaging import package_data_assembly
 # the opto-array on the virus-expressed site was activated and in ‘catch’ trials (0%–10% of all 
 # trials) the optoarray on the control site was activated."
 # --> 50% no-stimulation, 40-50% stimulation, 0-10% catch
+monkey_Ph_test_stimuli_base = 'Azadi2023_stimuli_monkey_Ph_test_stimulus_'
+
 
 assembly = BehavioralAssembly(['dog', 'dog', 'cat', 'dog', ...],
                                coords={
-                                   'stimulus_id': ('presentation', ['Azadi2023_stimuli_monkey_Ph_test_stimulus_01', 'image2', 'image3', 'image4', ...]),
+                                   'stimulus_id': ('presentation', 
+                                                   [f"{monkey_Ph_test_stimuli_base}{i:02}" for i in range(1, 41)]),
                                    #'sample_object': ('presentation', ['dog', 'cat', 'cat', 'dog', ...]),
                                    #'distractor_object': ('presentation', ['cat', 'dog', 'dog', 'cat', ...]),
                                    # ...more meta
@@ -38,15 +41,53 @@ assembly = BehavioralAssembly(['dog', 'dog', 'cat', 'dog', ...],
                                    #  https://github.com/brain-score/brainio/blob/d0ac841779fb47fa7b8bdad3341b68357c8031d9/brainio/fetch.py#L125-L132
                                },
                                dims=['presentation'])
-assembly.name = 'azadi2023'  # give the assembly an identifier name
+assembly.name = 'azadi2023_monkey_Ph_test'  # give the assembly an identifier name
 
 # make sure the assembly is what you would expect
-assert len(assembly['presentation']) == 179660
-assert len(set(assembly['stimulus_id'].values)) == 1600
+# "[...] and 10 [..] sessions were performed with a total of 17,033 trials, and an overall performance of 
+# 84.6% [...] correct (catch trials excluded) [...].
+assert len(assembly['presentation']) == 17033
+assert len(set(assembly['stimulus_id'].values)) == 40
 assert len(set(assembly['choice'].values)) == len(set(assembly['sample_object'].values)) \
        == len(set(assembly['distractor_object'].values)) == 2
 
 # upload to S3
-package_data_assembly(assembly, assembly_identifier=assembly.name, ,
-                      assembly_class='BehavioralAssembly'
-                      stimulus_set_identifier=stimuli.name)  # link to the StimulusSet
+#package_data_assembly(assembly, assembly_identifier=assembly.name, ,
+#                      assembly_class='BehavioralAssembly'
+#                      stimulus_set_identifier=stimuli.name)  # link to the StimulusSet
+
+
+
+"""
+# Monkey Sp
+#monkey_Sp_test_stimuli_base = 'Azadi2023_stimuli_monkey_Ph_test_stimulus_'
+
+
+
+assembly = BehavioralAssembly(['dog', 'dog', 'cat', 'dog', ...],
+                               coords={
+                                   'stimulus_id': ('presentation', 
+                                                   [f"{monkey_Sp_test_stimuli_base}{i:02}" for i in range(1, 41)]),
+                                   #'sample_object': ('presentation', ['dog', 'cat', 'cat', 'dog', ...]),
+                                   #'distractor_object': ('presentation', ['cat', 'dog', 'dog', 'cat', ...]),
+                                   # ...more meta
+                                   # Note that meta from the StimulusSet will automatically be merged into the
+                                   #  presentation dimension:
+                                   #  https://github.com/brain-score/brainio/blob/d0ac841779fb47fa7b8bdad3341b68357c8031d9/brainio/fetch.py#L125-L132
+                               },
+                               dims=['presentation'])
+assembly.name = 'azadi2023_monkey_Sp_test'  # give the assembly an identifier name
+
+# make sure the assembly is what you would expect
+# [...] and 13 sessions were performed with a total of [..] 16,125 trials, and an overall performance of 
+# [...] 84.9% correct (catch trials excluded) 
+assert len(assembly['presentation']) == 16,125
+assert len(set(assembly['stimulus_id'].values)) == 40
+assert len(set(assembly['choice'].values)) == len(set(assembly['sample_object'].values)) \
+       == len(set(assembly['distractor_object'].values)) == 2
+
+# upload to S3
+#package_data_assembly(assembly, assembly_identifier=assembly.name, ,
+#                      assembly_class='BehavioralAssembly'
+#                      stimulus_set_identifier=stimuli.name)  # link to the StimulusSet
+"""
