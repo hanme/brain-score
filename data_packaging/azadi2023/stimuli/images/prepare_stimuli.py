@@ -37,7 +37,7 @@ for filepath in Path("/home/mehrer/projects/perturbations/perturbation_tests/bra
     })
 stimuli = StimulusSet(stimuli)
 stimuli.stimulus_paths = stimulus_paths
-stimuli.name = '<AuthorYear>'  # give the StimulusSet an identifier name
+stimuli.name = 'Azadi2023'  # give the StimulusSet an identifier name
 
 assert len(stimuli) == 124  # make sure the StimulusSet is what you would expect
 
