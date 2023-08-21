@@ -23,6 +23,8 @@ import numpy as np
 import pandas as pd
 import scipy.io
 
+import xarray as xr
+
 from brainio.assemblies import DataAssembly
 from brainio.stimuli import StimulusSet
 
@@ -33,7 +35,7 @@ def collect_stimuli():
     assert all(Path(stimulus_set.get_stimulus(stimulus_id)).is_file() for stimulus_id in stimulus_set['stimulus_id'])
     assert set(stimulus_set['monkey']) == {'Ph', 'Sp'}
     assert set(stimulus_set['train_test']) == {'train', 'test'}
-    """ max 22 train stimuli, max 40 test stimuli"""
+    """ max 22 train stimuli, max 40 test stimuli """
     assert all(int(idx) <= (22 if label == 'train' else 40) for label, idx in \
                zip(stimulus_set['train_test'], stimulus_set['idx']))
     return stimulus_set
@@ -67,13 +69,12 @@ def collect_detection_profile():
     """ fig2A & figS2 """
     # data extracted with https://apps.automeris.io/wpd/ on 2023-08-18, points manually selected
     data = pd.read_csv(Path(__file__).parent / 'Azadi2023_fig2A_figS2.csv')
-    
+
     # package into xarray
     assembly = DataAssembly(data['performance_d_prime'], coords={
         'monkey': ('measurement', data['monkey']),
         'site': ('measurement', data['site']),
         'image_idx': ('measurement', data['image_idx']),
-        'summary_stats': ('measurement', data['summary_stats']),
     }, dims=['measurement'])
     assembly = assembly.unstack()
     assembly['monkey_Ph'] = ('monkey', [monkey == 'Ph' for monkey in assembly['monkey']])
@@ -81,6 +82,23 @@ def collect_detection_profile():
     assembly = assembly.stack(condition=['monkey'])
     assembly = DataAssembly(assembly)
     return assembly
+
+
+def collect_detection_profile_simulation():
+    """ fig2A & figS2 """
+    # data extracted with https://apps.automeris.io/wpd/ on 2023-08-18, points manually selected
+    data = pd.read_csv(Path(__file__).parent / 'Azadi2023_fig2A_figS2_simulation.csv')
+
+    # package into xarray
+    assembly = DataAssembly(data['performance_d_prime_SD'], coords={
+        'monkey': ('measurement', data['monkey']),
+        'site': ('measurement', data['site']),
+        'summary_stats': ('measurement', data['summary_stats']),
+    }, dims=['measurement'])
+    assembly = DataAssembly(assembly)
+    return assembly
+    
+
 
 
 def collect_corr_between_detection_profiles():
