@@ -153,7 +153,8 @@ class _Moeller2017(BenchmarkBase):
             .stack(condition=['stimulation', 'presentation'])
         behaviors = type(behaviors)(behaviors)
 
-        score = self._metric(behaviors, self._target_assembly)
+        average_subject_assembly = self._target_assembly.mean('subject')
+        score = self._metric(behaviors, average_subject_assembly)
         return score
 
     def _set_up_perturbations(self):

@@ -1,3 +1,4 @@
+import xarray as xr
 import itertools
 import re
 from os import listdir
@@ -22,15 +23,21 @@ def collect_target_assembly(stimulus_class, perturbation_location):
 
     # make into DataAssembly
     data = _load_target_data(stimulus_class, perturbation_location)
-    target_assembly = DataAssembly(data=data['accuracies'], dims='condition',
-                                   coords={'task': ('condition', data['condition']),  # same vs. diff
-                                           'object_name': ('condition', data['object_name']),
-                                           'current_pulse_mA': ('condition', data['current_pulse_mA'])},
-                                   attrs={'stimulus_set': stimulus_set,
-                                          'training_stimuli': training_stimuli,
-                                          'stimulus_set_face_patch': stimulus_set_face_patch})
-
-    return target_assembly
+    subject_assemblies = []
+    for subject in sorted(set(data['subject'])):
+        subject_data = data[data['subject'] == subject]
+        subject_assembly = DataAssembly(data=[subject_data['accuracies']], dims=['subject', 'condition'],
+                                        coords={'task': ('condition', subject_data['condition']),  # same vs. diff
+                                                'object_name': ('condition', subject_data['object_name']),
+                                                'current_pulse_mA': ('condition', subject_data['current_pulse_mA']),
+                                                'subject': ('subject', [f"M{int(subject)}"]),
+                                                },
+                                        attrs={'stimulus_set': stimulus_set,
+                                               'training_stimuli': training_stimuli,
+                                               'stimulus_set_face_patch': stimulus_set_face_patch})
+        subject_assemblies.append(subject_assembly)
+    assembly = xr.concat(subject_assemblies, 'subject')
+    return assembly
 
 
 def _load_target_data(stimulus_class, perturbation_location):
@@ -68,23 +75,20 @@ def _load_target_data(stimulus_class, perturbation_location):
 
     # select relevant lines
     df = df.loc[(df.Stimulus_Class == stimulus_class) &
-                (df.Perturbation_Location == perturbation_location) &
-                # Note that we are only using monkey 1 here, but that is the monkey the paper most focuses on
-                (df.Monkey == 1)]
+                (df.Perturbation_Location == perturbation_location)]
 
     # compute accuracies
-    data = {'accuracies': [], 'condition': [], 'current_pulse_mA': [], 'object_name': [], 'source': []}
+    data = {'accuracies': [], 'condition': [], 'current_pulse_mA': [], 'object_name': [], 'subject': []}
     for condition, stimulation in itertools.product(['Same', 'Different'], ['', '_MSC']):
         setup = condition + stimulation
         accuracy = df['Hit_' + setup] / (df['Hit_' + setup] + df['Miss_' + setup])
         data['accuracies'] += accuracy.to_list()
         data['condition'] += [condition.lower() + '_id'] * len(accuracy)
         data['current_pulse_mA'] += [300] * len(accuracy) if stimulation == '_MSC' else [0] * len(accuracy)
-        # works but cannot sel current_pulse_mA: df.Current_Pulse_mA.to_list() if stimulation == '_MSC' else [0] * len(accuracy)
         data['object_name'] += df.Object_Names.to_list()
-        data['source'] += df.Monkey.to_list()
+        data['subject'] += df.Monkey.to_list()
 
-    return data
+    return pd.DataFrame(data)
 
 
 def _load_stimulus_set(stimulus_class):
