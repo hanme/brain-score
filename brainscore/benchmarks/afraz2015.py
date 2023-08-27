@@ -121,6 +121,8 @@ class _Afraz2015Optogenetics(BenchmarkBase):
                 candidate.perturb(perturbation=BrainModel.Perturbation.optogenetic_suppression,
                                   target='IT', perturbation_parameters={
                         **{'location': location}, **OPTOGENETIC_PARAMETERS})
+                # Note that in the primate experiment, the subjects might still have been receiving reward
+                # for correct trials even during the 'perturbation'.
                 behavior = candidate.look_at(self._assembly.stimulus_set)
                 behavior = behavior.expand_dims('site')
                 behavior['site_iteration'] = 'site', [site]

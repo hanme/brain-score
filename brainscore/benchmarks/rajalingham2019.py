@@ -157,6 +157,8 @@ class _Rajalingham2019(BenchmarkBase):
         candidate.perturb(perturbation=BrainModel.Perturbation.muscimol,
                           target='IT',
                           perturbation_parameters=perturbation_parameters)
+        # Note that in the primate experiment, the subjects might still have been receiving reward
+        # for correct trials even during the 'perturbation'.
         behavior = candidate.look_at(self._test_stimuli)
 
         behavior = behavior.expand_dims('injected').expand_dims('site')
