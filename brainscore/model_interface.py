@@ -201,6 +201,8 @@ class BrainModel:
         """ `perturbation_parameters` should include `location` (in millimeter), `current_pulse_mA`, `pulse_rate_Hz` """
         optogenetic_suppression = 'optogenetic_suppression'
         """ `perturbation_parameters` should include `location` (in millimeter), `fiber_output_power_mW` """
+        optogenetic_activation = 'optogenetic_activation'
+        """ `perturbation_parameters` should include `location` (in millimeter), `fiber_output_power_mW` """
 
     def perturb(self, perturbation: Perturbation, target: Union[RecordingTarget, str], perturbation_parameters=None):
         """
