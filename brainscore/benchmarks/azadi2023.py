@@ -72,7 +72,6 @@ OPTOGENETIC_PARAMETERS = {
     "infectious_units_per_ml": 8E12,
     # "a 200 ms illumination impulse was delivered to IT cortex halfway through the image presentation"
     "laser_pulse_duration_ms": 200,
-    # "total fiber output power ∼12 mW"
     # "illumination power of 3.6 mW [monkey Ph] and 5.4 mW [monkey Sp]"
     "fiber_output_power_mW": 3.6, # monkey Ph
     #"fiber_output_power_mW_monkey_Sp": 5.4, # monkey Sp

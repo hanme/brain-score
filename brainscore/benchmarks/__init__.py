@@ -231,29 +231,29 @@ def _engineering_benchmark_pool():
     pool['fei-fei.Deng2009-top1'] = LazyLoad(Imagenet2012)
 
     # ImageNet-C
-    from .imagenet_c import Imagenet_C_Noise, Imagenet_C_Blur, Imagenet_C_Weather, Imagenet_C_Digital
-    pool['dietterich.Hendrycks2019-noise-top1'] = LazyLoad(Imagenet_C_Noise)
-    pool['dietterich.Hendrycks2019-blur-top1'] = LazyLoad(Imagenet_C_Blur)
-    pool['dietterich.Hendrycks2019-weather-top1'] = LazyLoad(Imagenet_C_Weather)
-    pool['dietterich.Hendrycks2019-digital-top1'] = LazyLoad(Imagenet_C_Digital)
+    #from .imagenet_c import Imagenet_C_Noise, Imagenet_C_Blur, Imagenet_C_Weather, Imagenet_C_Digital
+    #pool['dietterich.Hendrycks2019-noise-top1'] = LazyLoad(Imagenet_C_Noise)
+    #pool['dietterich.Hendrycks2019-blur-top1'] = LazyLoad(Imagenet_C_Blur)
+    #pool['dietterich.Hendrycks2019-weather-top1'] = LazyLoad(Imagenet_C_Weather)
+    #pool['dietterich.Hendrycks2019-digital-top1'] = LazyLoad(Imagenet_C_Digital)
 
     # ObjectNet
-    from .objectnet import Objectnet
-    pool['katz.BarbuMayo2019-top1'] = LazyLoad(Objectnet)
+    #from .objectnet import Objectnet
+    #pool['katz.BarbuMayo2019-top1'] = LazyLoad(Objectnet)
 
     # Geirhos2021
-    from . import geirhos2021
-    for dataset in geirhos2021.DATASETS:
-        assembly_identifier = f'Geirhos2021{dataset}'.replace('-', '')
-        benchmark_ctr = getattr(geirhos2021, f"{assembly_identifier}Accuracy")
-        pool[f"brendel.{assembly_identifier}-top1"] = LazyLoad(
-            # use lambda parameter-binding to avoid `benchmark_ctr` being re-assigned in the next loop iteration
-            lambda benchmark_ctr=benchmark_ctr: benchmark_ctr())
+    #from . import geirhos2021
+    #for dataset in geirhos2021.DATASETS:
+    #    assembly_identifier = f'Geirhos2021{dataset}'.replace('-', '')
+    #    benchmark_ctr = getattr(geirhos2021, f"{assembly_identifier}Accuracy")
+    #    pool[f"brendel.{assembly_identifier}-top1"] = LazyLoad(
+    #        # use lambda parameter-binding to avoid `benchmark_ctr` being re-assigned in the next loop iteration
+    #        lambda benchmark_ctr=benchmark_ctr: benchmark_ctr())
 
     # Hermann2020
-    from .hermann2020 import Hermann2020cueconflictShapeBias, Hermann2020cueconflictShapeMatch
-    pool['kornblith.Hermann2020cueconflict-shape_bias'] = LazyLoad(Hermann2020cueconflictShapeBias)
-    pool['kornblith.Hermann2020cueconflict-shape_match'] = LazyLoad(Hermann2020cueconflictShapeMatch)
+    #from .hermann2020 import Hermann2020cueconflictShapeBias, Hermann2020cueconflictShapeMatch
+    #pool['kornblith.Hermann2020cueconflict-shape_bias'] = LazyLoad(Hermann2020cueconflictShapeBias)
+    #pool['kornblith.Hermann2020cueconflict-shape_match'] = LazyLoad(Hermann2020cueconflictShapeMatch)
     
     return pool
 
@@ -309,8 +309,15 @@ def _experimental_benchmark_pool():
     pool['dicarlo.Afraz2015.muscimol-delta_accuracy_face'] = LazyLoad(Afraz2015MuscimolDeltaAccuracyFace)
     pool['dicarlo.Afraz2015.muscimol-delta_accuracy_nonface'] = LazyLoad(Afraz2015MuscimolDeltaAccuracyNonFace)
     ## Azadi2023
-    #from brainscore.benchmarks.azadi2021 import \
-    
+    #from brainscore.benchmarks.azadi2023 import Afraz2015OptogeneticContraDeltaAccuracySignificant
+    #pool['afraz.azadi2023.optogenetics-contra_accuracy_significant'] = LazyLoad(
+    #    Afraz2015OptogeneticContraDeltaAccuracySignificant) # just to get a working example I am loading from Afraz2015
+    #from brainscore.benchmarks.azadi2023 import Azadi2023OptogeneticActivationDetectionProfileSDLikelihood
+    #pool['afraz.Azadi2023.optogenetic_activation-detection_profile_SD_delta'] = \
+    #    LazyLoad(Azadi2023OptogeneticActivationDetectionProfileSDDelta)
+    from brainscore.benchmarks.azadi2023 import Azadi2023OptogeneticActivationUnperturbedPerturbed
+    pool['afraz.Azadi2023.optogenetic_activation-unperturbed_perturbed'] = \
+        LazyLoad(Azadi2023OptogeneticActivationUnperturbedPerturbed)
     ## Moeller2017
     from brainscore.benchmarks.moeller2017 import Moeller2017Experiment1SameDecreaseDifferentIncrease
     pool['tsao.Moeller2017.experiment1-same_decrease_different_increase'] = LazyLoad(
