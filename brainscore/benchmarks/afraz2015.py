@@ -232,7 +232,7 @@ class _Afraz2015OptogeneticOverallAccuracy(_Afraz2015Optogenetics):
         grouped_accuracy = self.group_accuracy(unperturbed_accuracy, site_accuracies)
 
         # compute score
-        aggregate_target = self._assembly.sel(aggregation='center')
+        aggregate_target = self._assembly.sel(aggregation='center').mean('subject')
         score = self._metric(grouped_accuracy, aggregate_target)
         return score
 

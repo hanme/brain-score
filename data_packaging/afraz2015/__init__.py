@@ -1,3 +1,4 @@
+import xarray as xr
 import re
 from pathlib import Path
 
@@ -72,27 +73,35 @@ def collect_assembly():
 
 
 def collect_delta_overall_accuracy():
-    """ fig 3A """
-    # data extracted with https://apps.automeris.io/wpd/ on 2021-07-09, points manually selected
-    data = pd.read_csv(Path(__file__).parent / 'fig3A.csv')
-    errors = data.groupby(['visual_field', 'condition']).apply(
-        lambda group: (group['value'][group['aggregation'] == 'positive_error'].values
-                       - group['value'][group['aggregation'] == 'mean'].values)[0])
-    data.loc[data['aggregation'] == 'positive_error', 'value'] = errors.values
-    data.loc[data['aggregation'] == 'positive_error', 'aggregation'] = 'error'
-    data.loc[data['aggregation'] == 'mean', 'aggregation'] = 'center'
+    """ fig S2 (per-monkey data on fig 3A) """
+    # data extracted with https://apps.automeris.io/wpd/ on 2023-08-27, points manually selected
+    data_monkeyC = pd.read_csv(Path(__file__).parent / 'figS2a.csv')
+    data_monkeyE = pd.read_csv(Path(__file__).parent / 'figS2c.csv')
+    subject_assemblies = []
+    for monkey, data in zip(['C', 'E'], [data_monkeyC, data_monkeyE]):
+        errors = data.groupby(['visual_field', 'condition']).apply(
+            lambda group: (group['value'][group['aggregation'] == 'positive_error'].values
+                           - group['value'][group['aggregation'] == 'mean'].values)[0])
+        data.loc[data['aggregation'] == 'positive_error', 'value'] = errors.values
+        data.loc[data['aggregation'] == 'positive_error', 'aggregation'] = 'error'
+        data.loc[data['aggregation'] == 'mean', 'aggregation'] = 'center'
 
-    # package into xarray
-    value = data['value'] / 100  # convert from percentage
-    assembly = DataAssembly(value, coords={
-        'visual_field': ('measurement', data['visual_field']),
-        'condition_description': ('measurement', data['condition']),
-        'aggregation': ('measurement', data['aggregation']),
-    }, dims=['measurement'])
-    assembly = assembly.unstack()
-    assembly['laser_on'] = ('condition_description', [condition == 'image_laser'
-                                                      for condition in assembly['condition_description']])
-    assembly = assembly.stack(condition=['condition_description'])
+        # package into xarray
+        value = data['value'] / 100  # convert from percentage
+        assembly = DataAssembly(value, coords={
+            'visual_field': ('measurement', data['visual_field']),
+            'condition_description': ('measurement', data['condition']),
+            'aggregation': ('measurement', data['aggregation']),
+        }, dims=['measurement'])
+        assembly = assembly.unstack()
+        assembly['laser_on'] = ('condition_description', [condition == 'image_laser'
+                                                          for condition in assembly['condition_description']])
+        assembly = assembly.stack(condition=['condition_description'])
+        assembly = assembly.expand_dims('subject')
+        assembly['subject_id'] = ('subject', [f'monkey{monkey}'])
+        assembly['monkey'] = ('subject', [monkey])
+        subject_assemblies.append(assembly)
+    assembly = xr.concat(subject_assemblies, 'subject')
     assembly = DataAssembly(assembly)
     return assembly
 
