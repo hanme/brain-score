@@ -164,7 +164,7 @@ class _Azadi2023Optogenetics(BenchmarkBase):
         self._logger.debug(f"Activating at {location}")
         candidate.perturb(perturbation=BrainModel.Perturbation.optogenetic_activation,
                           target='IT', perturbation_parameters={
-            **{'location': location}})
+            **{'location': location}, **OPTOGENETIC_PARAMETERS})
 
         hemisphere_recordings_perturbed = candidate.look_at(self._assembly.stimulus_set)
         print('hemisphere_recordings_perturbed: ', hemisphere_recordings_perturbed)
