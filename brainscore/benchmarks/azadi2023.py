@@ -18,6 +18,7 @@ print(sys.path)
 
 import functools
 import logging
+import os
 
 import numpy as np
 import xarray as xr
@@ -25,6 +26,8 @@ from brainio.assemblies import merge_data_arrays, DataAssembly, walk_coords, arr
 from numpy.random import RandomState
 from tqdm import tqdm
 from xarray import DataArray
+from itertools import product
+from sklearn.metrics import accuracy_score
 
 from brainscore.benchmarks import BenchmarkBase
 from brainscore.benchmarks.afraz2006 import mean_var
@@ -35,6 +38,7 @@ from brainscore.metrics.significant_match import SignificantCorrelation, Signifi
     is_significantly_different, NoSignificantPerformanceChange
 from brainscore.model_interface import BrainModel
 from brainscore.utils import fullname
+from model_tools.brain_transformation.behavior import ProbabilitiesMapping
 """
 from data_packaging.azadi2023 import collect_stimuli, collect_stimulation_report_rate_training, \
     collect_detection_profile, collect_corr_between_detection_profiles, \
@@ -134,12 +138,13 @@ class _Azadi2023Optogenetics(BenchmarkBase):
 
         # Load the stimuli using the provided function.
         monkey_Ph_training_stimuli, monkey_Ph_testing_stimuli, \
-        _, _ = load_stimuli_Azadi2023() # only using data from monkey Ph for now
-        self._fitting_stimuli = monkey_Ph_training_stimuli
-        self._test_stimuli = monkey_Ph_testing_stimuli
-
+        monkey_Sp_training_stimuli, monkey_Sp_testing_stimuli = load_stimuli_Azadi2023() # only using data from monkey Ph for now # original
+        
         self._assembly = self.collect_assembly()
-        self._assembly.attrs['stimulus_set'] = self._test_stimuli
+        self._assembly.attrs['monkey_Ph_train_set'] = monkey_Ph_training_stimuli
+        self._assembly.attrs['monkey_Ph_test_set'] = monkey_Ph_testing_stimuli
+        self._assembly.attrs['monkey_Sp_train_set'] = monkey_Sp_training_stimuli
+        self._assembly.attrs['monkey_Sp_test_set'] = monkey_Sp_testing_stimuli
         self._metric = metric
 
         super(_Azadi2023Optogenetics, self).__init__(
@@ -150,25 +155,135 @@ class _Azadi2023Optogenetics(BenchmarkBase):
 
     def collect_assembly(self):
         return collect_detection_profile()
+    
+    def xr_np_concat_xr(self, recordings_unperturbed, recordings_perturbed):
+        data_unperturbed = recordings_unperturbed.loc[{'neuroid': slice(None), 'presentation': slice(None)}]
+        data_unperturbed_np = np.array(data_unperturbed)
+        data_perturbed = recordings_perturbed.loc[{'neuroid': slice(None), 'presentation': slice(None)}]
+        data_perturbed_np = np.array(data_perturbed)
+        concat_data = np.concatenate((data_unperturbed_np, data_perturbed_np), axis=1)
+        
+        concat_presentation = np.concatenate([recordings_unperturbed.presentation.values, 
+                                                recordings_perturbed.presentation.values])
+
+        concat_xarray = xr.DataArray(
+            concat_data,
+            coords=[
+                ('neuroid', recordings_unperturbed.neuroid.values),
+                ('presentation', concat_presentation)
+            ],
+            dims=['neuroid', 'presentation']
+        )
+        return concat_xarray
+
+    def process_recordings(self, recordings_unperturbed, recordings_perturbed):
+        """ 
+        xr_np_concat_xr not pretty. Reasons for the numpy workaround:
+        Merging xarrays via assemblies.merge_data_arrays() creates nans in the resulting xarray.
+        Same problem for the other of two options mentioned in the following discussion:
+        https://stackoverflow.com/a/50125997/2225200
+
+        """
+        monkey_train_unperturbed = recordings_unperturbed.sel(train_test='train')
+        monkey_train_perturbed = recordings_perturbed.sel(train_test='train')
+        monkey_train = self.xr_np_concat_xr(monkey_train_unperturbed, monkey_train_perturbed)
+        
+        monkey_test_unperturbed = recordings_unperturbed.sel(train_test='test')
+        monkey_test_perturbed = recordings_perturbed.sel(train_test='test')
+        monkey_test = self.xr_np_concat_xr(monkey_test_unperturbed, monkey_test_perturbed)
+
+        y_train = np.concatenate([np.zeros(monkey_train_unperturbed.presentation.size), 
+                                np.ones(monkey_train_perturbed.presentation.size)])
+        y_train = xr.DataArray(y_train, dims="presentation")
+        
+        y_test = np.concatenate([np.zeros(monkey_test_unperturbed.presentation.size),
+                                np.ones(monkey_test_perturbed.presentation.size)])
+        y_test = xr.DataArray(y_test, dims="presentation")
+
+        classifier = ProbabilitiesMapping.ProbabilitiesClassifier()
+        classifier.fit(monkey_train.transpose('presentation', 'neuroid'), y_train)
+        y_pred_proba = classifier.predict_proba(monkey_test.transpose('presentation', 'neuroid'))
+        y_pred = y_pred_proba.argmax(axis=1) 
+        accuracy = accuracy_score(y_test, y_pred)
+        print("monkey")
+        print("Accuracy: {:.2f}%".format(accuracy * 100))
+        print(y_test, y_pred)
+    
+    def score_recordings(self, recordings_unperturbed, recordings_perturbed):
+        for monkey in ['Ph', 'Sp']:
+            monkey_unperturbed = recordings_unperturbed.sel(monkey=monkey)
+            monkey_perturbed = recordings_perturbed.sel(monkey=monkey)
+            self.process_recordings(monkey_unperturbed, monkey_perturbed)
 
     def __call__(self, candidate: BrainModel):        
         candidate.start_task(BrainModel.Task.passive, fitting_stimuli=None)
         candidate.start_recording('IT', time_bins=[(50, 100)],
             hemisphere=BrainModel.Hemisphere.right, recording_type=BrainModel.RecordingType.exact) # monkey Ph: right hemisphere --> stimulation site
-        candidate.perturb(perturbation=None, target='IT')  # reset
-        hemisphere_recordings_unperturbed = candidate.look_at(self._assembly.stimulus_set)      
-        print('hemisphere_recordings_unperturbed: ', hemisphere_recordings_unperturbed)  
-        print('hemisphere_recordings_unperturbed.shape: ', hemisphere_recordings_unperturbed.shape)
+        
+        location = [7.74, 5.9] # only use one random location for now
+        recordings_unperturbed = []
+        recordings_perturbed = []
+        
+        for monkey, image_set, perturbation in product(['Ph', 'Sp'], ['train', 'test'], ['unperturbed', 'perturbed']):
+            attribute = f"monkey_{monkey}_{image_set}_set"
+            stimuli = getattr(self._assembly, attribute)
 
-        location = [7.74, 5.9]
+            self._logger.debug(f"Activating at {location}")
+            candidate.perturb(perturbation=None, target='IT')  # reset
+
+            if perturbation == 'unperturbed':   
+                recording = candidate.look_at(stimuli)
+                # set perturbation field
+                recording = recording.assign_coords(perturbation=('presentation', [perturbation]*stimuli.shape[0]))
+                recordings_unperturbed.append(recording)
+                
+            elif perturbation == 'perturbed':
+                candidate.perturb(perturbation=BrainModel.Perturbation.optogenetic_activation,
+                                target='IT', perturbation_parameters={
+                    **{'location': location}, **OPTOGENETIC_PARAMETERS})
+                recording = candidate.look_at(stimuli)
+                # set perturbation field
+                recording = recording.assign_coords(perturbation=('presentation', [perturbation]*stimuli.shape[0]))
+                recordings_perturbed.append(recording)
+            
+
+        candidate.perturb(perturbation=None, target='IT')  # reset
+        recordings_unperturbed = merge_data_arrays(recordings_unperturbed)
+        recordings_perturbed = merge_data_arrays(recordings_perturbed)
+
+        return self.score_recordings(recordings_unperturbed, recordings_perturbed)
+    
+
+        """
+        # preliminary code for saving the hemisphere recordings
+        # train set
+        #candidate.perturb(perturbation=None, target='IT')  # reset
+        hemisphere_recordings_unperturbed = candidate.look_at(self._assembly.monkey_Ph_train_set) # check whether self.choice_labels == 'imagenet'
+        location = [7.74, 5.9] # only use one random location for now
         self._logger.debug(f"Activating at {location}")
         candidate.perturb(perturbation=BrainModel.Perturbation.optogenetic_activation,
                           target='IT', perturbation_parameters={
             **{'location': location}, **OPTOGENETIC_PARAMETERS})
+        hemisphere_recordings_perturbed = candidate.look_at(self._assembly.monkey_Ph_train_set)
+        
+        candidate.perturb(perturbation=None, target='IT')  # reset
 
-        hemisphere_recordings_perturbed = candidate.look_at(self._assembly.stimulus_set)
-        print('hemisphere_recordings_perturbed: ', hemisphere_recordings_perturbed)
-        print('hemisphere_recordings_perturbed.shape: ', hemisphere_recordings_perturbed.shape)
+        #np.save('/home/mehrer/projects/perturbations/perturbation_tests/tmp_investigate_perturbation_activations/data/Monkey_Ph_training_hemisphere_recordings_unperturbed.npy', hemisphere_recordings_unperturbed)
+        #np.save('/home/mehrer/projects/perturbations/perturbation_tests/tmp_investigate_perturbation_activations/data/Monkey_Ph_training_hemisphere_recordings_perturbed.npy', hemisphere_recordings_perturbed)
+
+        # test set
+        hemisphere_recordings_unperturbed = candidate.look_at(self._assembly.monkey_Ph_test_set) # check whether self.choice_labels == 'imagenet'
+        location = [7.74, 5.9] # only use one random location for now
+        self._logger.debug(f"Activating at {location}")
+        candidate.perturb(perturbation=BrainModel.Perturbation.optogenetic_activation,
+                          target='IT', perturbation_parameters={
+            **{'location': location}, **OPTOGENETIC_PARAMETERS})
+        hemisphere_recordings_perturbed = candidate.look_at(self._assembly.monkey_Ph_test_set)
+        os.system()
+        np.save('/home/mehrer/projects/perturbations/perturbation_tests/tmp_investigate_perturbation_activations/data/Monkey_Ph_testing_hemisphere_recordings_unperturbed.npy', hemisphere_recordings_unperturbed)
+        np.save('/home/mehrer/projects/perturbations/perturbation_tests/tmp_investigate_perturbation_activations/data/Monkey_Ph_testing_hemisphere_recordings_perturbed.npy', hemisphere_recordings_perturbed)
+        """
+                
 
         return self.score_behaviors(hemisphere_recordings_unperturbed, hemisphere_recordings_perturbed)
 
