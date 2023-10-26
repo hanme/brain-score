@@ -99,8 +99,6 @@ def collect_detection_profile_simulation():
     return assembly
     
 
-
-
 def collect_corr_between_detection_profiles():
     """ Azadi2023_fig2B_fig_S3A """
     # data extracted with https://apps.automeris.io/wpd/ on 2023-08-18, points manually selected

@@ -66,6 +66,7 @@ BIBTEX = """{azadi_image-dependence_2023,
             pages = {581--588.e4}
         }"""
 
+
 OPTOGENETIC_PARAMETERS = {
     # "At each [of 16] injection site, 10 μl of virus was injected at a 0.5 μl/min rate, for a total volume of injection of 160 uL."
     # Azadi2023 used an array of 16 injection sites. Needs adjustment?
@@ -77,9 +78,100 @@ OPTOGENETIC_PARAMETERS = {
     # "a 200 ms illumination impulse was delivered to IT cortex halfway through the image presentation"
     "laser_pulse_duration_ms": 200,
     # "illumination power of 3.6 mW [monkey Ph] and 5.4 mW [monkey Sp]"
-    "fiber_output_power_mW": 3.6, # monkey Ph
-    #"fiber_output_power_mW_monkey_Sp": 5.4, # monkey Sp
+    "fiber_output_power_mW": 3.6
 }
+
+"""
+OPTOGENETIC_PARAMETERS_monkey_Ph = {
+    # "At each [of 16] injection site, 10 μl of virus was injected at a 0.5 μl/min rate, for a total volume of injection of 160 uL."
+    # Azadi2023 used an array of 16 injection sites. Needs adjustment?
+    "amount_microliter": 10,  
+    "rate_microliter_per_min": 0.5,
+    # "We then injected AAV5-CaMKIIa-C1V1(t/t)-EYFP (nominal titer: 8x10^12 particles/ml) into the cortex"
+    "virus": "AAV5-CaMKIIa-C1V1(t/t)-EYFP",
+    "infectious_units_per_ml": 8E12,
+    # "a 200 ms illumination impulse was delivered to IT cortex halfway through the image presentation"
+    "laser_pulse_duration_ms": 200,
+    # "illumination power of 3.6 mW [monkey Ph] and 5.4 mW [monkey Sp]"
+    "fiber_output_power_mW": 3.6
+}
+
+OPTOGENETIC_PARAMETERS_monkey_Sp = {
+    # "At each [of 16] injection site, 10 μl of virus was injected at a 0.5 μl/min rate, for a total volume of injection of 160 uL."
+    # Azadi2023 used an array of 16 injection sites. Needs adjustment?
+    "amount_microliter": 10,  
+    "rate_microliter_per_min": 0.5,
+    # "We then injected AAV5-CaMKIIa-C1V1(t/t)-EYFP (nominal titer: 8x10^12 particles/ml) into the cortex"
+    "virus": "AAV5-CaMKIIa-C1V1(t/t)-EYFP",
+    "infectious_units_per_ml": 8E12,
+    # "a 200 ms illumination impulse was delivered to IT cortex halfway through the image presentation"
+    "laser_pulse_duration_ms": 200,
+    # "illumination power of 3.6 mW [monkey Ph] and 5.4 mW [monkey Sp]"
+    "fiber_output_power_mW_monkey_Sp": 5.4, # monkey Sp
+}
+"""
+
+"""print(y_pred_dict['image_31_unperturbed'])
+    print(y_test_dict['image_31_unperturbed'])
+    print(y_pred_dict['image_35_unperturbed'])
+    print(y_test_dict['image_35_unperturbed'])
+    
+    print(y_pred_dict['image_31_perturbed'])
+    print(y_test_dict['image_31_perturbed'])
+    print(y_pred_dict['image_35_perturbed'])
+    print(y_test_dict['image_35_perturbed'])"""
+
+"""fiber_output_power_mW 3.6, shift range [-2, 2]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"""
+
+"""fiber_output_power_mW 3.6, shift range [-4, 4]
+[0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1] XXX
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1] XXX
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"""
+
+"""fiber_output_power_mW 3.6, shift range [-6, 6]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"""
+
+"""fiber_output_power_mW 3.6, shift range [-8, 8]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1] XXX
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"""
+
+"""fiber_output_power_mW 3.6, shift range [-10, 10]
+[0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1] XXX
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1] XXX
+[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"""
+
+
 
 # Azadi2023
 def load_stimuli_Azadi2023():
@@ -155,35 +247,75 @@ class _Azadi2023Optogenetics(BenchmarkBase):
 
     def collect_assembly(self):
         return collect_detection_profile()
+
+    def __call__(self, candidate: BrainModel):        
+        candidate.start_task(BrainModel.Task.passive, fitting_stimuli=None)
+        candidate.start_recording('IT', time_bins=[(50, 100)],
+            hemisphere=BrainModel.Hemisphere.right, recording_type=BrainModel.RecordingType.exact) # monkey Ph: right hemisphere --> stimulation site
+        locations_x = [3.61172522405272, 2.5360450480582344, 2.17835897436] # max_face, max_object, neither max_face nor max_object [36.1172522405272, 25.360450480582344, 21.7835897436], [10.0, 20.0] 
+        locations_y = [4.212987890644269, 3.604051548711573, 0.702229213483] # max_face, max_object, neither max_face nor max_object [42.12987890644269, 36.04051548711573, 7.02229213483], [10.0, 20.0]
+        for location_x, location_y in zip(locations_x, locations_y):
+            location = [location_x, location_y]
+            recordings_unperturbed = []
+            recordings_perturbed = []
+            
+            for monkey, image_set, perturbation in product(['Ph',], ['train', 'test'], ['unperturbed', 'perturbed']): # ['Ph', 'Sp'], ['train', 'test']
+                print("######")
+                print("monkey, image_set, perturbation: ", monkey, image_set, perturbation)
+                #variable_name = f"OPTOGENETIC_PARAMETERS_monkey_{monkey}"
+                #OPTOGENETIC_PARAMETERS = locals()[variable_name]
+                attribute = f"monkey_{monkey}_{image_set}_set"
+                stimuli = getattr(self._assembly, attribute)
+
+                self._logger.debug(f"Activating at {location}")
+                candidate.perturb(perturbation=None, target='IT')  # reset
+
+                if perturbation == 'unperturbed':   
+                    recording = candidate.look_at(stimuli)
+                    # set perturbation field
+                    recording = recording.assign_coords(perturbation=(['presentation'], [perturbation]*recording.shape[0]))
+                    recordings_unperturbed.append(recording)
+                    
+                elif perturbation == 'perturbed':
+                    candidate.perturb(perturbation=BrainModel.Perturbation.optogenetic_activation,
+                                    target='IT', perturbation_parameters={
+                        **{'location': location}, **OPTOGENETIC_PARAMETERS})
+                    recording = candidate.look_at(stimuli)
+                    # set perturbation field
+                    recording = recording.assign_coords(perturbation=(['presentation'], [perturbation]*recording.shape[0]))
+                    recordings_perturbed.append(recording)
+                
+            candidate.perturb(perturbation=None, target='IT')  # reset
+            recordings_unperturbed = merge_data_arrays(recordings_unperturbed)
+            recordings_perturbed = merge_data_arrays(recordings_perturbed)
+
+            # save recordings_unperturbed and recordings_perturbed as npy
+            #save_dir = '/home/mehrer/projects/perturbations/perturbation_tests/tmp_investigate_perturbation_activations/debugging_d_prime'
+            #np.save(os.path.join(save_dir, f"recordings_unperturbed_params_monkey_Ph_fiber_output_power_mW_3p6_loc_x_{location_x}_y_{location_y}.npy"), recordings_unperturbed)
+            #np.save(os.path.join(save_dir, f"recordings_perturbed_params_monkey_Ph_fiber_output_power_mW_3p6_loc_x_{location_x}_y_{location_y}.npy"), recordings_perturbed)
+            #os.system()
+
+            self.score_behaviors(recordings_unperturbed, recordings_perturbed, location)
+
+        return 42
     
-    def xr_np_concat_xr(self, recordings_unperturbed, recordings_perturbed):
-        data_unperturbed = recordings_unperturbed.loc[{'neuroid': slice(None), 'presentation': slice(None)}]
-        data_unperturbed_np = np.array(data_unperturbed)
-        data_perturbed = recordings_perturbed.loc[{'neuroid': slice(None), 'presentation': slice(None)}]
-        data_perturbed_np = np.array(data_perturbed)
-        concat_data = np.concatenate((data_unperturbed_np, data_perturbed_np), axis=1)
-        
-        concat_presentation = np.concatenate([recordings_unperturbed.presentation.values, 
-                                                recordings_perturbed.presentation.values])
+    def score_behaviors(self, recordings_unperturbed, recordings_perturbed, location):
+        for monkey in ['Ph',]: #['Ph', 'Sp']
+            monkey_unperturbed = recordings_unperturbed.sel(monkey=monkey)
+            monkey_perturbed = recordings_perturbed.sel(monkey=monkey)
+            self.process_recordings(monkey_unperturbed, monkey_perturbed, location)
 
-        concat_xarray = xr.DataArray(
-            concat_data,
-            coords=[
-                ('neuroid', recordings_unperturbed.neuroid.values),
-                ('presentation', concat_presentation)
-            ],
-            dims=['neuroid', 'presentation']
-        )
-        return concat_xarray
+    
 
-    def process_recordings(self, recordings_unperturbed, recordings_perturbed):
+    def process_recordings(self, recordings_unperturbed, recordings_perturbed, location):
         """ 
         xr_np_concat_xr not pretty. Reasons for the numpy workaround:
         Merging xarrays via assemblies.merge_data_arrays() creates nans in the resulting xarray.
         Same problem for the other of two options mentioned in the following discussion:
-        https://stackoverflow.com/a/50125997/2225200
-
+        https://stackoverflow.com/a/50125997/2225200 (which originally had inspired the solution 
+        implemented in assemblies.merge_data_arrays())
         """
+        
         monkey_train_unperturbed = recordings_unperturbed.sel(train_test='train')
         monkey_train_perturbed = recordings_perturbed.sel(train_test='train')
         monkey_train = self.xr_np_concat_xr(monkey_train_unperturbed, monkey_train_perturbed)
@@ -207,24 +339,98 @@ class _Azadi2023Optogenetics(BenchmarkBase):
         accuracy = accuracy_score(y_test, y_pred)
         print("monkey")
         print("Accuracy: {:.2f}%".format(accuracy * 100))
-        print(y_test, y_pred)
-    
-    def score_recordings(self, recordings_unperturbed, recordings_perturbed):
-        for monkey in ['Ph', 'Sp']:
-            monkey_unperturbed = recordings_unperturbed.sel(monkey=monkey)
-            monkey_perturbed = recordings_perturbed.sel(monkey=monkey)
-            self.process_recordings(monkey_unperturbed, monkey_perturbed)
+        print('ytest[:50]: ', y_test[:50])
+        print('ypred[:50]: ', y_pred[:50])
 
-    def __call__(self, candidate: BrainModel):        
-        candidate.start_task(BrainModel.Task.passive, fitting_stimuli=None)
-        candidate.start_recording('IT', time_bins=[(50, 100)],
-            hemisphere=BrainModel.Hemisphere.right, recording_type=BrainModel.RecordingType.exact) # monkey Ph: right hemisphere --> stimulation site
+        y_pred_dict = self.split_to_dict(y_pred)
+        y_test_dict = self.split_to_dict(y_test)
+
+        # Now y_pred_dict and y_test_dict should contain the split values
+        print(y_pred_dict)
+        print(y_test_dict)
+
+        print(y_pred_dict['image_31_unperturbed'])
+        print(y_test_dict['image_31_unperturbed'])
+        print(y_pred_dict['image_35_unperturbed'])
+        print(y_test_dict['image_35_unperturbed'])
         
-        location = [7.74, 5.9] # only use one random location for now
+        print(y_pred_dict['image_31_perturbed'])
+        print(y_test_dict['image_31_perturbed'])
+        print(y_pred_dict['image_35_perturbed'])
+        print(y_test_dict['image_35_perturbed'])
+
+        def loc_2_suffix(location):
+            x = f"{location[0]:.2f}".replace(".", "p")
+            y = f"{location[1]:.2f}".replace(".", "p")
+            return f"loc_x_{x}_y_{y}"
+
+        # save y_pred_dict and y_test_dict as npy 
+        save_dir = '/home/mehrer/projects/perturbations/perturbation_tests/tmp_investigate_perturbation_activations/debugging_d_prime'
+
+        import pickle
+        # Saving the dictionary
+        with open(os.path.join(save_dir, f"y_pred_dict_params_monkey_Ph_fiber_output_power_mW_3p6_{loc_2_suffix(location)}_NOW.pkl"), "wb") as f:
+            pickle.dump(y_pred_dict, f)
+
+        # Saving the other dictionary
+        with open(os.path.join(save_dir, f"y_test_dict_params_monkey_Ph_fiber_output_power_mW_3p6_{loc_2_suffix(location)}_NOW.pkl"), "wb") as f:
+            pickle.dump(y_test_dict, f)
+
+        os.system()
+
+
+    def split_to_dict(self, y_values):
+        y_values = list(map(int, y_values))
+        result_dict = {}
+        num_images = 40
+        activations_per_image = 25
+
+        for i in range(num_images):
+            unperturbed_key = f"image_{i+1}_unperturbed"
+            perturbed_key = f"image_{i+1}_perturbed"
+            
+            unperturbed_start = i * activations_per_image
+            unperturbed_end = (i + 1) * activations_per_image
+            
+            perturbed_start = num_images * activations_per_image + i * activations_per_image  # Starts from index 1000 for perturbed
+            perturbed_end = num_images * activations_per_image + (i + 1) * activations_per_image
+
+            result_dict[unperturbed_key] = y_values[unperturbed_start:unperturbed_end]
+            result_dict[perturbed_key] = y_values[perturbed_start:perturbed_end]
+        
+        return result_dict
+
+
+    def xr_np_concat_xr(self, recordings_unperturbed, recordings_perturbed):
+        # assuming both xarrays have the same coords and dims
+        combined_np = np.concatenate([recordings_unperturbed.values, recordings_perturbed.values], \
+                                     axis=0)
+        presentation_double_len = np.concatenate((recordings_unperturbed.coords['presentation'], \
+                                                  recordings_unperturbed.coords['presentation']))
+        concat_xarray = xr.DataArray(data=combined_np, coords={"presentation": presentation_double_len}, \
+                                     dims=recordings_unperturbed.dims)
+            
+        return concat_xarray
+        
+
+def Azadi2023OptogeneticActivationUnperturbedPerturbed():
+    def behaviors_activation_metric(unperturbed_behavior, perturbed_behavior):
+        # XXX
+        return unperturbed_behavior, perturbed_behavior
+
+    return _Azadi2023Optogenetics(
+        metric_identifier='unperturbed_perturbed_activation',
+        metric=behaviors_activation_metric)
+
+
+"""
+        location = [1, 1] #[7.74, 5.9] # only use one random location for now
         recordings_unperturbed = []
         recordings_perturbed = []
         
-        for monkey, image_set, perturbation in product(['Ph', 'Sp'], ['train', 'test'], ['unperturbed', 'perturbed']):
+        for monkey, image_set, perturbation in product(['Ph',], ['train', 'test'], ['unperturbed', 'perturbed']): # ['Ph', 'Sp']
+            print("######")
+            print("monkey, image_set, perturbation: ", monkey, image_set, perturbation)
             attribute = f"monkey_{monkey}_{image_set}_set"
             stimuli = getattr(self._assembly, attribute)
 
@@ -234,7 +440,7 @@ class _Azadi2023Optogenetics(BenchmarkBase):
             if perturbation == 'unperturbed':   
                 recording = candidate.look_at(stimuli)
                 # set perturbation field
-                recording = recording.assign_coords(perturbation=('presentation', [perturbation]*stimuli.shape[0]))
+                recording = recording.assign_coords(perturbation=(['presentation'], [perturbation]*recording.shape[0]))
                 recordings_unperturbed.append(recording)
                 
             elif perturbation == 'perturbed':
@@ -243,18 +449,18 @@ class _Azadi2023Optogenetics(BenchmarkBase):
                     **{'location': location}, **OPTOGENETIC_PARAMETERS})
                 recording = candidate.look_at(stimuli)
                 # set perturbation field
-                recording = recording.assign_coords(perturbation=('presentation', [perturbation]*stimuli.shape[0]))
+                n_presentation = len(recording.presentation)
+                recording = recording.assign_coords(perturbation=(['presentation'], [perturbation]*recording.shape[0]))
                 recordings_perturbed.append(recording)
             
-
         candidate.perturb(perturbation=None, target='IT')  # reset
         recordings_unperturbed = merge_data_arrays(recordings_unperturbed)
         recordings_perturbed = merge_data_arrays(recordings_perturbed)
 
         return self.score_recordings(recordings_unperturbed, recordings_perturbed)
-    
+"""
 
-        """
+"""
         # preliminary code for saving the hemisphere recordings
         # train set
         #candidate.perturb(perturbation=None, target='IT')  # reset
@@ -282,25 +488,7 @@ class _Azadi2023Optogenetics(BenchmarkBase):
         os.system()
         np.save('/home/mehrer/projects/perturbations/perturbation_tests/tmp_investigate_perturbation_activations/data/Monkey_Ph_testing_hemisphere_recordings_unperturbed.npy', hemisphere_recordings_unperturbed)
         np.save('/home/mehrer/projects/perturbations/perturbation_tests/tmp_investigate_perturbation_activations/data/Monkey_Ph_testing_hemisphere_recordings_perturbed.npy', hemisphere_recordings_perturbed)
-        """
-                
-
-        return self.score_behaviors(hemisphere_recordings_unperturbed, hemisphere_recordings_perturbed)
-
-    def score_behaviors(self, unperturbed_behavior, perturbed_behavior):
-        # XXX
-        return 42
-        
-
-def Azadi2023OptogeneticActivationUnperturbedPerturbed():
-    def behaviors_activation_metric(unperturbed_behavior, perturbed_behavior):
-        # XXX
-        return unperturbed_behavior, perturbed_behavior
-
-    return _Azadi2023Optogenetics(
-        metric_identifier='unperturbed_perturbed_activation',
-        metric=behaviors_activation_metric)
-
+"""
 
 
 """
