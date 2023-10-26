@@ -28,6 +28,7 @@ from tqdm import tqdm
 from xarray import DataArray
 from itertools import product
 from sklearn.metrics import accuracy_score
+from scipy.stats import norm
 
 from brainscore.benchmarks import BenchmarkBase
 from brainscore.benchmarks.afraz2006 import mean_var
@@ -45,7 +46,7 @@ from data_packaging.azadi2023 import collect_stimuli, collect_stimulation_report
     collect_psychometric_functions_illumination_power, collect_psychometric_functions_image_visibility
 """
 from data_packaging.azadi2023 import collect_stimuli as collect_stimuli_Azadi2023
-from data_packaging.azadi2023 import collect_detection_profile
+from data_packaging.azadi2023 import collect_detection_profile, collect_detection_profile_simulation
 from data_packaging.afraz2015 import muscimol_delta_overall_accuracy, collect_stimuli, collect_site_deltas, \
     collect_delta_overall_accuracy
 
@@ -252,8 +253,10 @@ class _Azadi2023Optogenetics(BenchmarkBase):
         candidate.start_task(BrainModel.Task.passive, fitting_stimuli=None)
         candidate.start_recording('IT', time_bins=[(50, 100)],
             hemisphere=BrainModel.Hemisphere.right, recording_type=BrainModel.RecordingType.exact) # monkey Ph: right hemisphere --> stimulation site
-        locations_x = [3.61172522405272, 2.5360450480582344, 2.17835897436] # max_face, max_object, neither max_face nor max_object [36.1172522405272, 25.360450480582344, 21.7835897436], [10.0, 20.0] 
-        locations_y = [4.212987890644269, 3.604051548711573, 0.702229213483] # max_face, max_object, neither max_face nor max_object [42.12987890644269, 36.04051548711573, 7.02229213483], [10.0, 20.0]
+        #locations_x = [3.61172522405272, 2.5360450480582344, 2.17835897436] # max_face, max_object, neither max_face nor max_object [36.1172522405272, 25.360450480582344, 21.7835897436], [10.0, 20.0] 
+        #locations_y = [4.212987890644269, 3.604051548711573, 0.702229213483] # max_face, max_object, neither max_face nor max_object [42.12987890644269, 36.04051548711573, 7.02229213483], [10.0, 20.0]
+        locations_x = [3.61172522405272]  
+        locations_y = [4.212987890644269] 
         for location_x, location_y in zip(locations_x, locations_y):
             location = [location_x, location_y]
             recordings_unperturbed = []
@@ -300,11 +303,15 @@ class _Azadi2023Optogenetics(BenchmarkBase):
         return 42
     
     def score_behaviors(self, recordings_unperturbed, recordings_perturbed, location):
+        observed_DP_SD  = collect_detection_profile_simulation() # observed detection profile standard 
+                                                                 # deviation (see blue bars in right panel 
+                                                                 # of fig. 2A & S2)
         for monkey in ['Ph',]: #['Ph', 'Sp']
             monkey_unperturbed = recordings_unperturbed.sel(monkey=monkey)
             monkey_perturbed = recordings_perturbed.sel(monkey=monkey)
-            self.process_recordings(monkey_unperturbed, monkey_perturbed, location)
-        score = self._metric(observed_DP_STD, self._assembly) # observed_DP_SD - observed detepction profile standard deviation
+            modeled_DP_SD = self.process_recordings(monkey_unperturbed, monkey_perturbed, location)
+
+        score = self._metric(observed_DP_SD, modeled_DP_SD) 
         return score 
 
     def process_recordings(self, recordings_unperturbed, recordings_perturbed, location):
@@ -334,26 +341,28 @@ class _Azadi2023Optogenetics(BenchmarkBase):
 
         classifier = ProbabilitiesMapping.ProbabilitiesClassifier()
         classifier.fit(monkey_train.transpose('presentation', 'neuroid'), y_train)
-        print(monkey_train.transpose('presentation', 'neuroid'))
-        #print(monkey_train.transpose('presentation', 'neuroid').shape)
         y_pred_proba = classifier.predict_proba(monkey_test.transpose('presentation', 'neuroid'))
-        print(monkey_test.transpose('presentation', 'neuroid'))
-        #print(monkey_test.transpose('presentation', 'neuroid').shape)
         y_pred = y_pred_proba.argmax(axis=1) 
         accuracy = accuracy_score(y_test, y_pred)
+        print("################")
         print("monkey")
-        print("Accuracy: {:.2f}%".format(accuracy * 100))
-        print('ytest[:50]: ', y_test[:50])
-        print("len(y_test): ", len(y_test))
-        print('ypred[:50]: ', y_pred[:50])
-        print("len(y_pred): ", len(y_pred))
+        print("Overall accuracy: {:.2f}%".format(accuracy * 100))
 
+        # image-specific view
         y_pred_dict = self.split_to_dict(y_pred)
         y_test_dict = self.split_to_dict(y_test)
 
-        # Now y_pred_dict and y_test_dict should contain the split values
-        print(y_pred_dict)
-        print(y_test_dict)
+        hi, mi, fa, cr =  self.calculate_HI_MI_FA_CR(y_pred_dict, y_test_dict)
+
+        # d prime (standard & loglinear corrected)
+        d_prime_results = self.d_prime(hi, fa)
+        d_prime_loglinear_results = self.loglinear_dprime(hi, mi, fa, cr)
+
+        magic_number = self.std_filtered_list(d_prime_results)
+        print("#######")
+        print("magic_number: ", magic_number)
+
+        os.system()
 
         print(y_pred_dict['image_31_unperturbed'])
         print(y_test_dict['image_31_unperturbed'])
@@ -364,17 +373,18 @@ class _Azadi2023Optogenetics(BenchmarkBase):
         print(y_test_dict['image_31_perturbed'])
         print(y_pred_dict['image_35_perturbed'])
         print(y_test_dict['image_35_perturbed'])
+        #os.system()
 
         # save y_pred_dict and y_test_dict as npy 
         save_dir = '/home/mehrer/projects/perturbations/perturbation_tests/tmp_investigate_perturbation_activations/debugging_d_prime'
 
         import pickle
         # Saving the dictionary
-        with open(os.path.join(save_dir, f"y_pred_dict_params_monkey_Ph_fiber_output_power_mW_3p6_{self.loc_2_suffix(location)}_NOW.pkl"), "wb") as f:
+        with open(os.path.join(save_dir, f"y_pred_dict_params_monkey_Ph_fiber_output_power_mW_3p6_{self.loc_2_suffix(location)}.pkl"), "wb") as f:
             pickle.dump(y_pred_dict, f)
 
         # Saving the other dictionary
-        with open(os.path.join(save_dir, f"y_test_dict_params_monkey_Ph_fiber_output_power_mW_3p6_{self.loc_2_suffix(location)}_NOW.pkl"), "wb") as f:
+        with open(os.path.join(save_dir, f"y_test_dict_params_monkey_Ph_fiber_output_power_mW_3p6_{self.loc_2_suffix(location)}.pkl"), "wb") as f:
             pickle.dump(y_test_dict, f)
 
         os.system()
@@ -504,9 +514,19 @@ class _Azadi2023Optogenetics(BenchmarkBase):
                     their biasing effects on estimated values of d'. Behavior
                     Research Methods, Instruments, and Computers, 27, 46-51.
         """
+        HI = np.array(HI)
+        MI = np.array(MI)
+        FA = np.array(FA)
+        CR = np.array(CR)
+
         pHI = (HI + 0.5)/(HI + MI + 1)
         pFA = (FA + 0.5)/(CR + FA + 1)
         return norm.ppf(pHI) - norm.ppf(pFA)
+
+    def std_filtered_list(self, data):
+        data_array = np.array(data)
+        filtered_data = data_array[~np.isnan(data_array) & (data_array != 0) & ~np.isinf(data_array)]
+        return np.std(filtered_data)
         
 
 def Azadi2023OptogeneticActivationUnperturbedPerturbed():
