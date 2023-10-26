@@ -304,8 +304,8 @@ class _Azadi2023Optogenetics(BenchmarkBase):
             monkey_unperturbed = recordings_unperturbed.sel(monkey=monkey)
             monkey_perturbed = recordings_perturbed.sel(monkey=monkey)
             self.process_recordings(monkey_unperturbed, monkey_perturbed, location)
-
-    
+        score = self._metric(observed_DP_STD, self._assembly) # observed_DP_SD - observed detepction profile standard deviation
+        return score 
 
     def process_recordings(self, recordings_unperturbed, recordings_perturbed, location):
         """ 
@@ -334,13 +334,19 @@ class _Azadi2023Optogenetics(BenchmarkBase):
 
         classifier = ProbabilitiesMapping.ProbabilitiesClassifier()
         classifier.fit(monkey_train.transpose('presentation', 'neuroid'), y_train)
+        print(monkey_train.transpose('presentation', 'neuroid'))
+        #print(monkey_train.transpose('presentation', 'neuroid').shape)
         y_pred_proba = classifier.predict_proba(monkey_test.transpose('presentation', 'neuroid'))
+        print(monkey_test.transpose('presentation', 'neuroid'))
+        #print(monkey_test.transpose('presentation', 'neuroid').shape)
         y_pred = y_pred_proba.argmax(axis=1) 
         accuracy = accuracy_score(y_test, y_pred)
         print("monkey")
         print("Accuracy: {:.2f}%".format(accuracy * 100))
         print('ytest[:50]: ', y_test[:50])
+        print("len(y_test): ", len(y_test))
         print('ypred[:50]: ', y_pred[:50])
+        print("len(y_pred): ", len(y_pred))
 
         y_pred_dict = self.split_to_dict(y_pred)
         y_test_dict = self.split_to_dict(y_test)
@@ -359,24 +365,24 @@ class _Azadi2023Optogenetics(BenchmarkBase):
         print(y_pred_dict['image_35_perturbed'])
         print(y_test_dict['image_35_perturbed'])
 
-        def loc_2_suffix(location):
-            x = f"{location[0]:.2f}".replace(".", "p")
-            y = f"{location[1]:.2f}".replace(".", "p")
-            return f"loc_x_{x}_y_{y}"
-
         # save y_pred_dict and y_test_dict as npy 
         save_dir = '/home/mehrer/projects/perturbations/perturbation_tests/tmp_investigate_perturbation_activations/debugging_d_prime'
 
         import pickle
         # Saving the dictionary
-        with open(os.path.join(save_dir, f"y_pred_dict_params_monkey_Ph_fiber_output_power_mW_3p6_{loc_2_suffix(location)}_NOW.pkl"), "wb") as f:
+        with open(os.path.join(save_dir, f"y_pred_dict_params_monkey_Ph_fiber_output_power_mW_3p6_{self.loc_2_suffix(location)}_NOW.pkl"), "wb") as f:
             pickle.dump(y_pred_dict, f)
 
         # Saving the other dictionary
-        with open(os.path.join(save_dir, f"y_test_dict_params_monkey_Ph_fiber_output_power_mW_3p6_{loc_2_suffix(location)}_NOW.pkl"), "wb") as f:
+        with open(os.path.join(save_dir, f"y_test_dict_params_monkey_Ph_fiber_output_power_mW_3p6_{self.loc_2_suffix(location)}_NOW.pkl"), "wb") as f:
             pickle.dump(y_test_dict, f)
 
         os.system()
+
+    def loc_2_suffix(self, location):
+        x = f"{location[0]:.2f}".replace(".", "p")
+        y = f"{location[1]:.2f}".replace(".", "p")
+        return f"loc_x_{x}_y_{y}"
 
 
     def split_to_dict(self, y_values):
@@ -411,6 +417,96 @@ class _Azadi2023Optogenetics(BenchmarkBase):
                                      dims=recordings_unperturbed.dims)
             
         return concat_xarray
+    
+    """
+    Stanislaw & Todorov (1999) "Calculation of signal detection theory measures" Behavior Research Methods, Instruments, & Computers
+
+    Problem: 
+    "If both rates have extreme values, d′ [...] can still be
+    calculated. When H = 1 and F = 0, d′ = +inf [...].
+    When H = 0 and F = 1, d′ = -inf [...]. When both
+    rates are 0 or both rates are 1, most researchers assume
+    that d′ = 0 [...]. However, if one rate has an extreme
+    value and the other does not, d′ [...] are indeterminate." 
+    --> The latter is the case in our modeling approach of 
+    Azadi 2023 as the only notion of "trial" we have in our
+    non-stochastic model is based on modeled microsaccades. 
+
+    One solution:
+    "A third approach, dubbed loglinear, involves adding 0.5
+    to both the number of hits and the number of false alarms
+    and adding 1 to both the number of signal trials and the
+    number of noise trials, before calculating the hit and false-
+    alarm rates. This seems to work reasonably well (Hautus,
+    1995 [see below]). Advocates of the loglinear approach recommend
+    using it regardless of whether or not extreme rates are ob-
+    tained."
+
+    Note: 
+    "the loglinear method calls for adding 0.5 to all cells under 
+    the assumption that there are an equal number of signal and 
+    noise trials. If this is not the case, then the numbers will 
+    be different. If there are, say, 60% signal trials and 40% 
+    noise trials, then you would add 0.6 to the number of Hits, 
+    and 2x0.6 = 1.2 to the number of signal trials, and then 0.4 
+    to the number of false alarms, and 2x0.4 = 0.8 to the number 
+    of noise trials, etc." 
+    (https://stats.stackexchange.com/questions/134779/d-prime-with-100-hit-rate-probability-and-0-false-alarm-probability)
+
+    ####################################################################
+
+    Hautus, M. J. (1995). "Corrections for extreme proportions and their biasing effects on estimated values of d’." 
+    Behavior Research Methods, Instruments, & Computers, 27(1), 46–51. https://doi.org/10.3758/BF03203619
+
+    "A method that has found much use in log-linear analysis requires
+    the addition of 0.5 to each cell in the two-by-two con-
+    tingency table that defines the performance of the ob-
+    server (e.g., Fienberg, 1980; Goodman, 1970; Knoke &
+    Burke, 1980)."
+
+    """
+    def calculate_HI_MI_FA_CR(self, y_pred_dict, y_test_dict):
+        HI = []
+        MI = []
+        FA = []
+        CR = []
+        for i in range(40):
+            perturbed_key = f"image_{i+1}_perturbed"
+            unperturbed_key = f"image_{i+1}_unperturbed"
+            HI.append(sum(y_pred_dict[perturbed_key]) / len(y_test_dict[perturbed_key]))
+            MI.append(1 - sum(y_pred_dict[perturbed_key]) / len(y_test_dict[perturbed_key]))
+            FA.append(sum(y_pred_dict[unperturbed_key]) / len(y_test_dict[unperturbed_key]))
+            CR.append(1 - sum(y_pred_dict[unperturbed_key]) / len(y_test_dict[unperturbed_key]))
+        return HI, MI, FA, CR
+
+    def d_prime(self, hit_rate, false_alarm_rate):
+        z_hit = norm.ppf(hit_rate)
+        z_false_alarm = norm.ppf(false_alarm_rate)
+        d_prime = z_hit - z_false_alarm
+        return d_prime
+
+    def loglinear_dprime(self, HI, MI, FA, CR):
+        """
+        Copied by Johannes Mehrer from sdt_metrics.py written by Roger Lew
+        (https://rogerlew.github.io/sdt-metrics/loglinear_dprime.html#sdt_metrics.loglinear_dprime)
+
+        loglinear d': parametric measure of sensitivity
+
+            Applies Hautus's [1]_ loglinear transformation to counts
+            before calculating dprime. (Transformation is applied to all
+            values)
+
+            .. note:: This metric cannot be calculated from probabilities
+
+            .. seealso:: :py:meth:`dprime`
+                
+            .. [1] Hautus, M. (1995). Corrections for extreme proportions and
+                    their biasing effects on estimated values of d'. Behavior
+                    Research Methods, Instruments, and Computers, 27, 46-51.
+        """
+        pHI = (HI + 0.5)/(HI + MI + 1)
+        pFA = (FA + 0.5)/(CR + FA + 1)
+        return norm.ppf(pHI) - norm.ppf(pFA)
         
 
 def Azadi2023OptogeneticActivationUnperturbedPerturbed():
