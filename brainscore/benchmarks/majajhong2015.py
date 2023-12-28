@@ -113,10 +113,10 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
                                                     bin_size_mm=SPATIAL_BIN_SIZE_MM,
                                                     num_bootstrap_samples=100_000,
                                                     num_sample_arrays=10)
-        ceiler = InterIndividualStatisticsCeiling(self._metric)
+        ceiler = InterIndividualStatisticsCeiling(self._metric.compare_statistics)
+        target_statistic = LazyLoad(lambda: self._metric.compute_global_tissue_statistic_target(self._assembly))
         super().__init__(identifier='dicarlo.MajajHong2015.IT-spatial_correlation',
-                         ceiling_func=lambda: ceiler(LazyLoad(
-                             lambda: self._metric.compute_global_tissue_statistic_target(self._assembly))),
+                         ceiling_func=lambda: ceiler(target_statistic),
                          version=1,
                          parent='IT',
                          bibtex=BIBTEX)
@@ -130,7 +130,7 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
     def __call__(self, candidate: BrainModel) -> Score:
         """
         This computes the statistics, i.e. the pairwise response correlation of candidate and target, respectively and
-        computes a score based on the ks similarity of the two resulting distributions
+        computes a ceiling-normalized score based on the ks similarity of the two resulting distributions.
         :param candidate: BrainModel
         :return: average inverted ks similarity for the pairwise response correlation compared to the MajajHong assembly
         """
@@ -141,18 +141,22 @@ class DicarloMajajHong2015ITSpatialCorrelation(BenchmarkBase):
         candidate_assembly = candidate.look_at(self._assembly.stimulus_set)
         candidate_assembly = self.squeeze_time(candidate_assembly)
 
-        score = self._metric(candidate_assembly, self._assembly)
+        raw_score = self._metric(candidate_assembly, self._assembly)
+        score = raw_score / self.ceiling
+        score.attrs['raw'] = raw_score
+        score.attrs['ceiling'] = self.ceiling
         return score
 
     @staticmethod
     def tissue_update(assembly):
         """
-        Temporary functions: Obsolete when all saved assemblies updated such that x and y coordinates
-        of each array electrode are stored in assembly.neuroid.tissue_{x,y}
+        The current MajajHong2015 assembly has x and y coordinates of each array electrode stored as
+        coordinates `x` and `y` rather than the preferred `tissue_x` and `tissue_y`. Add these coordinates here.
         """
         if not hasattr(assembly, 'tissue_x'):
             assembly['tissue_x'] = assembly['x']
             assembly['tissue_y'] = assembly['y']
+        # re-index
         attrs = assembly.attrs
         assembly = type(assembly)(assembly.values, coords={
             coord: (dims, values) for coord, dims, values in walk_coords(assembly)}, dims=assembly.dims)

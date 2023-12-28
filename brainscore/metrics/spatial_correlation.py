@@ -9,7 +9,7 @@ from scipy.stats import pearsonr
 from typing import Tuple, List
 from xarray import DataArray
 
-from brainio.assemblies import walk_coords, NeuroidAssembly
+from brainio.assemblies import walk_coords, NeuroidAssembly, DataAssembly, merge_data_arrays
 from brainscore.benchmarks._neural_common import average_repetition
 from brainscore.metrics import Score, Metric
 from brainscore.metrics.ceiling import InternalConsistency
@@ -57,15 +57,24 @@ class SpatialCorrelationSimilarity(Metric):
                          np.ptp(target_assembly['tissue_y'].values))
         candidate_statistic = self.sample_global_tissue_statistic(candidate_assembly, array_size_mm=array_size_mm)
         target_statistic = self.compute_global_tissue_statistic_target(target_assembly)
+        return self.compare_statistics(candidate_statistic, target_statistic)
+
+    def compare_statistics(self, candidate_statistic: DataArray, target_statistic: DataArray) -> Score:
         # score all bins
         self._bin_min = np.min(target_statistic.distances)
         self._bin_max = np.max(target_statistic.distances)
         bin_scores = []
-        for in_bin_t, in_bin_c, enough_data in self._bin_masks(candidate_statistic, target_statistic):
-            if enough_data:
-                bin_scores.append(self.similarity_function(target_statistic.values[in_bin_t],
-                                                           candidate_statistic.values[in_bin_c]))
+        for bin_number, (target_mask, candidate_mask) in enumerate(
+                self._bin_masks(candidate_statistic, target_statistic)):
+            enough_data = target_mask.size > 0 and candidate_mask.size > 0  # both non-zero
+            if not enough_data:  # ignore bins with insufficient number of data
+                continue
+            similarity = self.similarity_function(target_statistic.values[target_mask],
+                                                  candidate_statistic.values[candidate_mask])
+            similarity = Score([similarity], coords={'bin': [bin_number]}, dims=['bin'])
+            bin_scores.append(similarity)
         # aggregate
+        bin_scores = merge_data_arrays(bin_scores)
         score = self._aggregate_scores(bin_scores)
         score.attrs['candidate_statistic'] = candidate_statistic
         score.attrs['target_statistic'] = target_statistic
@@ -226,29 +235,27 @@ class SpatialCorrelationSimilarity(Metric):
 
         return xarray_statistic
 
-    def _bin_masks(self, candidate_statistic, target_statistic):
+    def _bin_masks(self, candidate_statistic: DataArray, target_statistic: DataArray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Generator: Yields masks indexing which elements are within each bin.
-        :yield: mask(target, current_bin), mask(candidate, current_bin), enough data in the bins to do further computations
-        """
-        for lower_bound_mm in np.linspace(self._bin_min, self._bin_max,
-                                          int(self._bin_max * (1 / self.bin_size) + 1) * 2):
-            t = np.where(np.logical_and(target_statistic.distances >= lower_bound_mm,
-                                        target_statistic.distances < lower_bound_mm + self.bin_size))[0]
-            c = np.where(np.logical_and(candidate_statistic.distances >= lower_bound_mm,
-                                        candidate_statistic.distances < lower_bound_mm + self.bin_size))[0]
-            enough_data = t.size > 0 and c.size > 0  # random threshold
 
-            yield t, c, enough_data
+        :yield: a triplet where the two elements are masks for a bin over the target and candidate respectively
+        """
+        bin_step = int(self._bin_max * (1 / self.bin_size) + 1) * 2
+        for lower_bound_mm in np.linspace(self._bin_min, self._bin_max, bin_step):
+            target_mask = np.where(np.logical_and(target_statistic.distances >= lower_bound_mm,
+                                                  target_statistic.distances < lower_bound_mm + self.bin_size))[0]
+            candidate_mask = np.where(np.logical_and(candidate_statistic.distances >= lower_bound_mm,
+                                                     candidate_statistic.distances < lower_bound_mm + self.bin_size))[0]
+            yield target_mask, candidate_mask
 
-    def _aggregate_scores(self, scores: List[Score]) -> Score:
+    def _aggregate_scores(self, scores: Score, over: str = 'bin') -> Score:
         """
-        Aggregates list of values into Score object
-        :param scores: list of values assumed to be scores
-        :return: Score object | where score['center'] = mean(scores) and score['error'] = std(scores)
+        Aggregates scores into an aggregate Score where `center = mean(scores)` and `error = mad(scores)`
+        :param scores: scores over bins
         """
-        center = np.median(scores)
-        error = np.median(np.absolute(scores - np.median(scores)))  # MAD
+        center = scores.median(dim=over)
+        error = abs((scores - scores.median(dim=over))).median(dim=over)  # mean absolute deviation
         aggregate_score = Score([center, error], coords={'aggregation': ['center', 'error']}, dims=('aggregation',))
         aggregate_score.attrs[Score.RAW_VALUES_KEY] = scores
 
@@ -270,8 +277,8 @@ class SpatialCharacterizationMetric:
 
         score = self._similarity_metric(candidate_statistic, target_statistic)
         score.attrs['candidate_behaviors'] = behaviors
-        score.attrs['candidate_statistic'] = candidate_statistic
-        score.attrs['candidate_assembly'] = candidate_assembly
+        # score.attrs['candidate_statistic'] = candidate_statistic  FIXME temporary comment
+        # score.attrs['candidate_assembly'] = candidate_assembly  FIXME
         return score
 
     def compute_response_deficit_distance_target(self, dprime_assembly):
