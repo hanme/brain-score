@@ -21,7 +21,8 @@ class NeuralBenchmark(BenchmarkBase):
         self._number_of_trials = number_of_trials
 
     def __call__(self, candidate: BrainModel):
-        candidate.start_recording(self.region, time_bins=self.timebins)
+        candidate.start_recording(self.region, time_bins=self.timebins,
+                                  recording_type=BrainModel.RecordingType.exact)
         stimulus_set = place_on_screen(self._assembly.stimulus_set, target_visual_degrees=candidate.visual_degrees(),
                                        source_visual_degrees=self._visual_degrees)
         source_assembly = candidate.look_at(stimulus_set, number_of_trials=self._number_of_trials)

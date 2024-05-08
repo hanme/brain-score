@@ -59,10 +59,10 @@ class PearsonCorrelation:
     """
 
     def __init__(self, stimulus_coord=XarrayDefaults.stimulus_coord,
-                 neuroid_dim=XarrayDefaults.neuroid_dim, neuroid_coord=XarrayDefaults.neuroid_coord):
+                 neuroid_dim=XarrayDefaults.neuroid_dim, neuroid_coord=XarrayDefaults.group_coord):
         correlation = scipy.stats.pearsonr
         self._correlation = XarrayCorrelation(correlation, correlation_coord=stimulus_coord,
-                                              neuroid_coord=neuroid_coord)
+                                              group_coord=neuroid_coord)
         self._neuroid_dim = neuroid_dim
 
     def __call__(self, half1, half2):

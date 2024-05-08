@@ -1,0 +1,2 @@
+[brainio_lookups]
+brainio_brainscore = brainscore.entrypoint:brainio_brainscore

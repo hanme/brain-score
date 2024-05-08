@@ -1,0 +1,9 @@
+visual_field,condition,aggregation,value
+contra,image,mean,86.0875
+contra,image,positive_error,86.725
+contra,image_laser,mean,83.4375
+contra,image_laser,positive_error,84.05625
+ipsi,image,mean,85.34375
+ipsi,image,positive_error,85.85625
+ipsi,image_laser,mean,86.49375
+ipsi,image_laser,positive_error,87.225

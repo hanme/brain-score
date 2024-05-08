@@ -153,7 +153,20 @@ class BrainModel:
                   - stimulus_path (presentation) object '/home/me/.brainio/demo_stimuli/image1.png' ...
         """
 
-    def start_task(self, task: Task, fitting_stimuli) -> None:
+        same_different = 'same_different'
+        """ 
+        in `look_at`, subsequent stimuli will be treated as one stimulus-pair
+
+        stimuli include
+        * trial: unique number for each trial, i.e. pairs of 2 stimuli
+        * trial_cue: a unique number within each trial, i.e. 0 for the initial cue and 1 for the following cue
+        * label: 'same' or 'diff' for fitting_stimuli
+
+        output BehavioralAssembly with dimensions `presentation x choice` where `choice` is 1-dimensional to hold additional metadata,
+            with values 'same' or 'diff' to reflect the choice
+        """
+
+    def start_task(self, task: Task, fitting_stimuli=None):
         """
         Instructs the model to begin one of the tasks specified in
         :data:`~brainscore_vision.model_interface.BrainModel.Task`.
@@ -161,7 +174,8 @@ class BrainModel:
         the model returns the expected outputs for the specified task.
 
         :param task: The task the model should perform, and thus which outputs it should return
-        :param fitting_stimuli: A set of stimuli for the model to learn on, e.g. image-label pairs
+        :param fitting_stimuli: A set of stimuli for the model to learn on, e.g. image-label pairs.
+                                None when the task is passive viewing.
         """
         raise NotImplementedError()
 
@@ -172,7 +186,22 @@ class BrainModel:
         V4 = 'V4'
         IT = 'IT'
 
-    def start_recording(self, recording_target: RecordingTarget, time_bins: List[Tuple[int]]) -> None:
+    class Hemisphere:
+        """ the hemisphere to record in """
+        left = 'left'
+        right = 'right'
+
+    class RecordingType:
+        """ technique to record with """
+        exact = 'exact'
+        fMRI = 'fMRI'
+        utahArray = 'utahArray'
+
+    def start_recording(self,
+                        recording_target: RecordingTarget,
+                        time_bins: List[Tuple[int, int]],
+                        hemisphere: Hemisphere,
+                        recording_type: RecordingType) -> None:
         """
         Instructs the model to begin recording in a specified
         :data:`~brainscore_vision.model_interface.BrainModel.RecordingTarget` and return the specified `time_bins`.
@@ -195,6 +224,27 @@ class BrainModel:
         :param recording_target: which location to record from
         :param time_bins: which time_bins to record as a list of integer tuples,
             e.g. `[(50, 100), (100, 150), (150, 200)]` or `[(70, 170)]`
+        :param hemisphere: in which hemisphere to record
+        :param recording_type: with which technique to record with
+        """
+        raise NotImplementedError()
+
+    class Perturbation:
+        """ perturbation types """
+        muscimol = 'muscimol'
+        """ `perturbation_parameters` should include `location` (in millimeter), `amount_microliter` (milliliter) """
+        microstimulation = 'microstimulation'
+        """ `perturbation_parameters` should include `location` (in millimeter), `current_pulse_mA`, `pulse_rate_Hz` """
+        optogenetic_suppression = 'optogenetic_suppression'
+        """ `perturbation_parameters` should include `location` (in millimeter), `fiber_output_power_mW` """
+
+    def perturb(self, perturbation: Perturbation, target: Union[RecordingTarget, str], perturbation_parameters=None):
+        """
+        :param perturbation: the kind of perturbation, e.g. 'muscimol', 'optogenetics', 'microstimulation'.
+            When passed `None`, all perturbations are cleared.
+        :param target: what to perturb, e.g. 'IT', or a specific neuroid id
+        :param perturbation_parameters: details on the exact perturbation in a dictionary,
+                e.g. {'amount_microliter': 10, 'location': (6, 2)} for muscimol.
         """
         raise NotImplementedError()
 
