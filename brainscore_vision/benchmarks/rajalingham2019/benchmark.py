@@ -9,20 +9,19 @@ from numpy.random import RandomState
 from scipy.optimize import minimize
 from tqdm import tqdm
 
-import brainscore
+import brainscore_vision
 from brainio.assemblies import merge_data_arrays, walk_coords, DataAssembly, array_is_element
-from brainscore.benchmarks import BenchmarkBase
-from brainscore.metrics import Score
-from brainscore.metrics.behavior_differences import DeltaPredictionTask, DeltaPredictionObject
-from brainscore.metrics.difference_of_correlations import DifferenceOfCorrelations
-from brainscore.metrics.image_level_behavior import _o2
-from brainscore.metrics.inter_individual_stats_ceiling import InterIndividualStatisticsCeiling
-from brainscore.metrics.regression import pearsonr_correlation
-from brainscore.metrics.significant_match import SignificantCorrelation, SignificantPerformanceChange
-from brainscore.metrics.spatial_correlation import SpatialCorrelationSimilarity, SpatialCharacterizationMetric
-from brainscore.model_interface import BrainModel
-from brainscore.utils import fullname
-from brainscore_vision.data.rajalingham2019 import collect_assembly
+from brainscore_vision.benchmarks import BenchmarkBase
+from brainscore_core import Score
+from .behavior_differences import DeltaPredictionTask, DeltaPredictionObject
+# from brainscore.metrics.difference_of_correlations import DifferenceOfCorrelations
+# from brainscore.metrics.image_level_behavior import _o2
+# from brainscore.metrics.inter_individual_stats_ceiling import InterIndividualStatisticsCeiling
+# from brainscore.metrics.significant_match import SignificantCorrelation, SignificantPerformanceChange
+# from brainscore.metrics.spatial_correlation import SpatialCorrelationSimilarity, SpatialCharacterizationMetric
+from brainscore_vision.model_interface import BrainModel
+from brainscore_vision.data.rajalingham2019 import BIBTEX
+from ...utils import fullname
 
 TASK_LOOKUP = {
     'dog': 'Dog',
@@ -37,21 +36,6 @@ TASK_LOOKUP = {
     'chair0': 'Chair'
 }
 
-BIBTEX = """@article{RAJALINGHAM2019493,
-                title = {Reversible Inactivation of Different Millimeter-Scale Regions of Primate IT Results in Different Patterns of Core Object Recognition Deficits},
-                journal = {Neuron},
-                volume = {102},
-                number = {2},
-                pages = {493-505.e5},
-                year = {2019},
-                issn = {0896-6273},
-                doi = {https://doi.org/10.1016/j.neuron.2019.02.001},
-                url = {https://www.sciencedirect.com/science/article/pii/S0896627319301102},
-                author = {Rishi Rajalingham and James J. DiCarlo},
-                keywords = {object recognition, neural perturbation, inactivation, vision, primate, inferior temporal cortex},
-                abstract = {Extensive research suggests that the inferior temporal (IT) population supports visual object recognition behavior. However, causal evidence for this hypothesis has been equivocal, particularly beyond the specific case of face-selective subregions of IT. Here, we directly tested this hypothesis by pharmacologically inactivating individual, millimeter-scale subregions of IT while monkeys performed several core object recognition subtasks, interleaved trial-by trial. First, we observed that IT inactivation resulted in reliable contralateral-biased subtask-selective behavioral deficits. Moreover, inactivating different IT subregions resulted in different patterns of subtask deficits, predicted by each subregion’s neuronal object discriminability. Finally, the similarity between different inactivation effects was tightly related to the anatomical distance between corresponding inactivation sites. Taken together, these results provide direct evidence that the IT cortex causally supports general core object recognition and that the underlying IT coding dimensions are topographically organized.}
-                }"""
-
 # "Each inactivation session began with a single focal microinjection of 1ml of muscimol
 # (5mg/mL, Sigma Aldrich) at a slow rate (100nl/min) via a 30-gauge stainless-steel cannula at
 # the targeted site in ventral IT."
@@ -63,8 +47,8 @@ MUSCIMOL_PARAMETERS = {
 class _Rajalingham2019(BenchmarkBase):
     def __init__(self, identifier, metric, characterize=None, ceiling_func=None,
                  num_sites_per_hemisphere=10, num_experiment_bootstraps=10):
-        self._target_assembly = collect_assembly()
-        self._training_stimuli = brainscore.get_stimulus_set('dicarlo.hvm')
+        self._target_assembly = brainscore_vision.load_dataset('Rajalingham2019')
+        self._training_stimuli = brainscore_vision.load_stimulus_set('dicarlo.hvm')
         self._training_stimuli['image_label'] = self._training_stimuli['object_name']
         # use only those images where it's the same object (label)
         self._training_stimuli = self._training_stimuli[self._training_stimuli['object_name'].isin(
@@ -198,9 +182,10 @@ class _Rajalingham2019(BenchmarkBase):
 
 def Rajalingham2019GlobalDeficitsSignificant():
     characterization = CharacterizeDeltas()
-    metric = SignificantPerformanceChange(condition_name='injected',
-                                          condition_value1=False, condition_value2=True,
-                                          trial_dimension='task_site_injected')
+    metric = brainscore_vision.load_metric('perf_diff',
+                                           condition_name='injected',
+                                           condition_value1=False, condition_value2=True,
+                                           trial_dimension='task_site_injected')
 
     def filter_global_metric(source_assembly, target_assembly):
         dprime_assembly_all = characterization.characterize(source_assembly)
@@ -220,9 +205,10 @@ def Rajalingham2019GlobalDeficitsSignificant():
 
 def Rajalingham2019LateralDeficitDifference():
     characterization = CharacterizeDeltas()
-    metric = SignificantPerformanceChange(condition_name='visual_field',
-                                          condition_value1='ipsi', condition_value2='contra',
-                                          trial_dimension='task_site')
+    metric = brainscore_vision.load_metric('perf_diff',
+                                           condition_name='visual_field',
+                                           condition_value1='ipsi', condition_value2='contra',
+                                           trial_dimension='task_site')
 
     def filter_visual_fields_metric(source_assembly, target_assembly):
         dprime_assembly_all = characterization.characterize(source_assembly)
@@ -246,7 +232,9 @@ def Rajalingham2019LateralDeficitDifference():
 
 
 def Rajalingham2019SpatialCorrelationSignificant():
-    metric = SpatialCharacterizationMetric(similarity_metric=SignificantCorrelation(x_coord='distance'),
+    similarity_metric = brainscore_vision.load_metric('corr_sig', x_coord='distance')
+    metric = brainscore_vision.load_metric('spatial_correlation',
+                                           similarity_metric=similarity_metric,
                                            characterization=CharacterizeDeltas())
 
     def filter_global_metric(source_assembly, target_assembly):
@@ -259,8 +247,12 @@ def Rajalingham2019SpatialCorrelationSignificant():
                             metric=filter_global_metric)
 
 
+### The following code contains experimental benchmarks that we left for potential future use. ###
+
 def Rajalingham2019SpatialCorrelationSimilarity():
-    metric = SpatialCharacterizationMetric(similarity_metric=DifferenceOfCorrelations(correlation_variable='distance'),
+    similarity_metric = brainscore_vision.load_metric('corr_diff', correlation_variable='distance')
+    metric = brainscore_vision.load_metric('spatial_correlation',
+                                           similarity_metric=similarity_metric,
                                            characterization=CharacterizeDeltas())
 
     def filter_global_metric(source_assembly, target_assembly):
@@ -271,38 +263,6 @@ def Rajalingham2019SpatialCorrelationSimilarity():
                             metric=filter_global_metric)
 
 
-def Rajalingham2019DeltaPredictionTask():
-    metric = DeltaPredictionTask()
-
-    def filter_global_metric(source_assembly, target_assembly):
-        target_assembly = target_assembly.sel(visual_field='all')
-        return metric(source_assembly, target_assembly)
-
-    return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-deficit_prediction_task',
-                            # num_sites=100,  # TODO
-                            characterize=CharacterizeDeltas(),
-                            metric=filter_global_metric,
-                            ceiling_func=None,  # TODO
-                            num_experiment_bootstraps=3,  # fixme
-                            )
-
-
-def Rajalingham2019DeltaPredictionObject():
-    metric = DeltaPredictionObject()
-
-    def filter_global_metric(source_assembly, target_assembly):
-        target_assembly = target_assembly.sel(visual_field='all')
-        return metric(source_assembly, target_assembly)
-
-    return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-deficit_prediction_object',
-                            # num_sites=100,  # TODO
-                            characterize=CharacterizeDeltas(),
-                            metric=filter_global_metric,
-                            ceiling_func=None,  # TODO
-                            num_experiment_bootstraps=3,  # fixme
-                            )
-
-
 def DicarloRajalingham2019SpatialDeficitsQuantified():
     def inv_ks_similarity(p, q):
         """
@@ -311,15 +271,18 @@ def DicarloRajalingham2019SpatialDeficitsQuantified():
         import scipy.stats
         return 1 - scipy.stats.ks_2samp(p, q)[0]
 
-    similarity_metric = SpatialCorrelationSimilarity(similarity_function=inv_ks_similarity,
-                                                     bin_size_mm=.8)  # arbitrary bin size
-    metric = SpatialCharacterizationMetric(similarity_metric=similarity_metric, characterization=CharacterizeDeltas())
+    similarity_metric = brainscore_vision.load_metric('spatial_correlation',
+                                                      similarity_function=inv_ks_similarity,
+                                                      bin_size_mm=.8)  # arbitrary bin size
+    metric = brainscore_vision.load_metric('spatial_characterization',
+                                           similarity_metric=similarity_metric, characterization=CharacterizeDeltas())
     metric._similarity_metric = similarity_metric
     benchmark = _Rajalingham2019(identifier='dicarlo.Rajalingham2019.IT-spatial_deficit_similarity_quantified',
                                  metric=metric)
 
-    # TODO really messy solution | only works after benchmark metric has been called once
-    benchmark._ceiling_func = lambda: InterIndividualStatisticsCeiling(similarity_metric)(
+    # really messy solution -- only works after benchmark metric has been called once
+    ceiler = brainscore_vision.load_ceiling('inter_individual_statistics')
+    benchmark._ceiling_func = lambda: ceiler(similarity_metric)(
         benchmark._metric._similarity_metric.target_statistic)
     return benchmark
 
@@ -352,6 +315,8 @@ class CharacterizeDeltas:
 
     def characterize(self, assembly):
         """ compute per-task performance from `presentation x choice` assembly """
+        brainscore_vision.load_metric('i2n')  # make sure we can import from i1i2 plugin
+        from brainscore_vision.metrics.i1i2.metric import _o2
         # xarray can't do multi-dimensional grouping, do things manually
         o2s = []
         adjacent_values = assembly['injected'].values, assembly['site'].values
@@ -391,6 +356,26 @@ class CharacterizeDeltas:
         return behaviors.sel(injected=True) - behaviors.sel(injected=False)
 
 
+class LinearTransform:
+    def __call__(self, x: np.ndarray, a: np.ndarray, offset: np.ndarray) -> np.ndarray:
+        """
+        :param x: 1*3 array [x, y, z]
+        :param a: 3x3 array
+        :param offset: 1*3 array [x, y, z]
+        :return: 1*3 array [x, y, z]
+        """
+        return np.dot(a, x) + offset
+
+    def inverse(self, y: np.ndarray, a: np.ndarray, offset: np.ndarray) -> np.ndarray:
+        """
+        :param y: 1*3 array [x, y, z]
+        :param a: 3x3 array
+        :param offset: 1*3 array [x, y, z]
+        :return: 1*3 array [x, y, z]
+        """
+        return np.divide((y - offset), a)
+
+
 class Rajalingham2019DeltaPredictionSpace(_Rajalingham2019):
     def __init__(self,
                  *args,
@@ -402,6 +387,8 @@ class Rajalingham2019DeltaPredictionSpace(_Rajalingham2019):
             *args, identifier=identifier, metric=None, **kwargs)
         self._num_epochs = num_epochs
         self._characterization = CharacterizeDeltas()
+        brainscore_vision.load_metric('ridge')  # make sure we can import from regression_correlation plugin
+        from brainscore_vision.metrics.regression_correlation import pearsonr_correlation
         self._correlation = pearsonr_correlation(xarray_kwargs=dict(
             correlation_coord='task_number', group_coord='site_iteration', drop_target_nans=True))
         self._random_state = RandomState(0)
@@ -548,21 +535,33 @@ class Rajalingham2019DeltaPredictionSpace(_Rajalingham2019):
         return np.mean((truth - predicted) ** 2)
 
 
-class LinearTransform:
-    def __call__(self, x: np.ndarray, a: np.ndarray, offset: np.ndarray) -> np.ndarray:
-        """
-        :param x: 1*3 array [x, y, z]
-        :param a: 3x3 array
-        :param offset: 1*3 array [x, y, z]
-        :return: 1*3 array [x, y, z]
-        """
-        return np.dot(a, x) + offset
+def Rajalingham2019DeltaPredictionTask():
+    metric = DeltaPredictionTask()
 
-    def inverse(self, y: np.ndarray, a: np.ndarray, offset: np.ndarray) -> np.ndarray:
-        """
-        :param y: 1*3 array [x, y, z]
-        :param a: 3x3 array
-        :param offset: 1*3 array [x, y, z]
-        :return: 1*3 array [x, y, z]
-        """
-        return np.divide((y - offset), a)
+    def filter_global_metric(source_assembly, target_assembly):
+        target_assembly = target_assembly.sel(visual_field='all')
+        return metric(source_assembly, target_assembly)
+
+    return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-deficit_prediction_task',
+                            # num_sites=100,  # TODO
+                            characterize=CharacterizeDeltas(),
+                            metric=filter_global_metric,
+                            ceiling_func=None,  # TODO
+                            num_experiment_bootstraps=3,  # fixme
+                            )
+
+
+def Rajalingham2019DeltaPredictionObject():
+    metric = DeltaPredictionObject()
+
+    def filter_global_metric(source_assembly, target_assembly):
+        target_assembly = target_assembly.sel(visual_field='all')
+        return metric(source_assembly, target_assembly)
+
+    return _Rajalingham2019(identifier='dicarlo.Rajalingham2019-deficit_prediction_object',
+                            # num_sites=100,  # TODO
+                            characterize=CharacterizeDeltas(),
+                            metric=filter_global_metric,
+                            ceiling_func=None,  # TODO
+                            num_experiment_bootstraps=3,  # fixme
+                            )

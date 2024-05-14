@@ -1,9 +1,10 @@
 from collections import Counter
 
-from brainio.stimuli import StimulusSet
-from brainscore.benchmarks.moeller2017 import _Moeller2017
 import numpy as np
 from pytest import approx
+
+from brainio.stimuli import StimulusSet
+from .benchmark import Moeller2017Experiment1
 
 
 def test_make_same_different_pairs():
@@ -14,7 +15,8 @@ def test_make_same_different_pairs():
         'object_id': [f"r{num:03d}" for num in range(num_stimuli // 6) for _ in range(6)]
     })
     num_trials = 500
-    trials = _Moeller2017._make_same_different_pairs(self=None, stimulus_set=stimulus_set, num_trials=num_trials)
+    trials = Moeller2017Experiment1._make_same_different_pairs(
+        self=None, stimulus_set=stimulus_set, num_trials=num_trials)
     # trials
     assert len(trials) == num_trials * 2
     assert len(set(trials['trial'])) == num_trials

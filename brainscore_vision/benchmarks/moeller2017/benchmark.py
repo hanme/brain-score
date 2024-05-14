@@ -4,31 +4,19 @@ import numpy as np
 from numpy.random import RandomState
 from tqdm import tqdm
 
+import brainscore_vision
 from brainio.assemblies import merge_data_arrays, DataAssembly, walk_coords, array_is_element
 from brainio.stimuli import StimulusSet
-from brainscore.benchmarks import BenchmarkBase
-from brainscore.metrics import Metric
-from brainscore.metrics.accuracy import Accuracy
-from brainscore.metrics.significant_match import SignificantPerformanceChange
-from brainscore.model_interface import BrainModel
-from brainscore.utils import LazyLoad
-from brainscore_vision.data.moeller2017 import collect_target_assembly
+from brainscore_core import Metric, Score
+from brainscore_core.benchmarks import BenchmarkBase
+from brainscore_vision.data.moeller2017 import BIBTEX
+from brainscore_vision.model_interface import BrainModel
+from brainscore_vision.utils import LazyLoad
 
 """
 Benchmarks from the Moeller et al. 2017 paper (https://www.nature.com/articles/nn.4527).
 Only AM and outside-AM stimulation experiments are considered for now.
 """
-
-BIBTEX = '''@article{article,
-            author = {Moeller, Sebastian and Crapse, Trinity and Chang, Le and Tsao, Doris},
-            year = {2017},
-            month = {03},
-            pages = {},
-            title = {The effect of face patch microstimulation on perception of faces and objects},
-            volume = {20},
-            journal = {Nature Neuroscience},
-            doi = {10.1038/nn.4527}
-            }'''
 
 STIMULATION_PARAMETERS = {
     'type': [None, BrainModel.Perturbation.microstimulation, BrainModel.Perturbation.microstimulation],
@@ -43,10 +31,11 @@ DPRIME_THRESHOLD_SELECTIVITY = .66  # equivalent to .5 in monkey, see Lee et al.
 DPRIME_THRESHOLD_FACE_PATCH = .85  # equivalent to .65 in monkey, see Lee et al. 2020
 
 
-class _Moeller2017(BenchmarkBase):
+class Moeller2017Experiment1(BenchmarkBase):
     def __init__(self, stimulus_class: str, perturbation_location: str, identifier: str,
                  metric: Metric, performance_measure):
         """
+        Stimulate face patch during face identification (32 identities; 6 expressions each).
         Perform a same vs different identity judgement task on the given dataset
             with and without micro-stimulation in the specified location.
             Compute the behavioral performance on the given performance measure and
@@ -55,28 +44,25 @@ class _Moeller2017(BenchmarkBase):
         For each decision, only identities from the same object category are being compared.
         Within each dataset, the number of instances per category is equalized. As is the number of different
         representations (faces: expressions, object: viewing angles) per instance.
-
-        :param stimulus_class: one of: ['Faces', 'Objects', 'Eliciting_Face_Response', 'Abstract_Faces', 'Abstract_Houses']
-        :param perturbation_location: one of: ['within_facepatch', 'outside_facepatch']
-        :param identifier: benchmark id
-        :param metric: in: performances along multiple dimensions of 2 instances | out: Score object, evaluating similarity
-        :param performance_measure: taking behavioral data, returns performance w.r.t. each dimension
         """
         super().__init__(
             identifier=identifier,
-            ceiling_func=lambda: None,
+            ceiling=Score(1),
             version=1, parent='IT',
             bibtex=BIBTEX)
 
-        self._metric = metric
-        self._performance_measure = performance_measure
-        self._perturbation_location = perturbation_location
+        # these parameters could in principle be adapted to the other experiments in this paper
+        # but we chose not to because the other experiments are all n=1 monkey.
+        # one of: ['Faces', 'Objects', 'Eliciting_Face_Response', 'Abstract_Faces', 'Abstract_Houses']
+        self._stimulus_class = 'Faces'
+        self._performance_measure = brainscore_vision.load_metric('accuracy')
+        # one of: ['within_facepatch', 'outside_facepatch']
+        self._perturbation_location = 'within_facepatch'
         # LazyLoad because `self._perturbation_coordinates` is not set until later
         self._perturbations = LazyLoad(self._set_up_perturbations)
-        self._stimulus_class = stimulus_class
 
-        self._target_assembly = collect_target_assembly(stimulus_class=stimulus_class,
-                                                        perturbation_location=perturbation_location)
+        self._metric = stimulation_same_different_significant_change
+        self._target_assembly = brainscore_vision.load_dataset('Moeller2017.experiment1')
         self._test_set = self._make_same_different_pairs(
             self._target_assembly.stimulus_set, include_label=True)
         self._stimulus_set_face_patch = self._target_assembly.stimulus_set_face_patch
@@ -305,6 +291,7 @@ class _Moeller2017(BenchmarkBase):
 
 def stimulation_same_different_significant_change(candidate_behaviors, aggregate_target):
     """
+    Metric that is very specific to Moeller2017.
     Tests that the candidate behaviors changed in the same direction as the data after stimulation,
     separately for same and different tasks.
     :param candidate_behaviors: Per-trial behaviors (_not_ aggregate performance measures).
@@ -315,8 +302,8 @@ def stimulation_same_different_significant_change(candidate_behaviors, aggregate
         direction as the aggregate_target, for each of the same and different tasks; 0 otherwise
     """
     candidate_performances = (candidate_behaviors == candidate_behaviors['label']).squeeze('choice')
-    change_metric = SignificantPerformanceChange(condition_name='current_pulse_mA',
-                                                 condition_value1=0, condition_value2=300, trial_dimension='condition')
+    change_metric = brainscore_vision.load_metric('perf_diff', condition_name='current_pulse_mA',
+                                                  condition_value1=0, condition_value2=300, trial_dimension='condition')
     # same task
     candidate_same_task = candidate_performances[{'condition': candidate_performances['label'] == 'same'}]
     target_same_task = aggregate_target.sel(task='same_id')
@@ -330,76 +317,3 @@ def stimulation_same_different_significant_change(candidate_behaviors, aggregate
     joint_score.attrs['score_same'] = score_same
     joint_score.attrs['score_different'] = score_different
     return joint_score
-
-
-def Moeller2017Experiment1SameDecreaseDifferentIncrease():
-    """
-    Stimulate face patch during face identification
-    32 identities; 6 expressions each
-    """
-
-    return _Moeller2017(stimulus_class='Faces',
-                        perturbation_location='within_facepatch',
-                        identifier='dicarlo.Moeller2017-Experiment_1',
-                        metric=stimulation_same_different_significant_change,
-                        performance_measure=Accuracy())
-
-
-"""
-TODO  very unclean
-i: Stimulate outside of the face patch during face identification
-ii: Stimulate face patch during object identification
-28 Objects; 3 viewing angles each
-"""
-
-
-class Moeller2017Experiment2(BenchmarkBase):
-    def __init__(self):
-        metric = None  # PerformanceSimilarity()
-        super().__init__(
-            identifier='dicarlo.Moeller2017-Experiment_2', ceiling_func=None, version=1, parent='IT', bibtex=BIBTEX)
-        self.benchmark1_outside_faces = _Moeller2017(stimulus_class='Faces', perturbation_location='outside_facepatch',
-                                                     identifier='dicarlo.Moeller2017-Experiment_2i',
-                                                     metric=metric, performance_measure=Accuracy())
-        self.benchmark2_objects = _Moeller2017(stimulus_class='Objects', perturbation_location='within_facepatch',
-                                               identifier='dicarlo.Moeller2017-Experiment_2ii',
-                                               metric=metric, performance_measure=Accuracy())
-
-    def __call__(self, candidate):
-        return self.benchmark1_outside_faces(candidate), self.benchmark2_objects(candidate)
-
-
-def Moeller2017Experiment3():
-    """
-    Stimulate face patch during face & non-face object eliciting patch response identification
-    15 black & white round objects + faces; 3 exemplars per category  (apples, citrus, teapots, alarmclocks, faces)
-    """
-    return _Moeller2017(stimulus_class='Eliciting_Face_Response',
-                        perturbation_location='within_facepatch',
-                        identifier='dicarlo.Moeller2017-Experiment_3',
-                        metric=PerformanceSimilarity(),
-                        performance_measure=Accuracy())
-
-
-def Moeller2017Experiment4a():
-    """
-    Stimulate face patch during abstract face identification
-    16 Face Abtractions; 4 per category (Line Drawings, Silhouettes, Cartoons, Mooney Faces)
-    """
-    return _Moeller2017(stimulus_class='Abstract_Faces',
-                        perturbation_location='within_facepatch',
-                        identifier='dicarlo.Moeller2017-Experiment_4a',
-                        metric=PerformanceSimilarity(),
-                        performance_measure=Accuracy())
-
-
-def Moeller2017Experiment4b():
-    """
-    Stimulate face patch during face & abstract houses identification
-    20 Abstract Houses & Faces; 4 per category (House Line Drawings, House Cartoons, House Silhouettes, Mooney Faces, Mooney Faces up-side-down)
-    """
-    return _Moeller2017(stimulus_class='Abstract_Houses',
-                        perturbation_location='within_facepatch',
-                        identifier='dicarlo.Moeller2017-Experiment_4b',
-                        metric=PerformanceSimilarity(),
-                        performance_measure=Accuracy())

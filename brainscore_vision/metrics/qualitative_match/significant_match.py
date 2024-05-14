@@ -3,7 +3,7 @@ import pingouin as pg
 from scipy.stats import pearsonr, fisher_exact
 
 from brainio.assemblies import DataAssembly
-from brainscore.metrics import Score, Metric
+from brainscore_core import Score, Metric
 
 
 class ContingencyMatch(Metric):
@@ -46,11 +46,6 @@ class ContingencyMatch(Metric):
         source_significant = p_source < self.significance_threshold
         return Score([expect_significant == source_significant],
                      coords={'aggregation': ['center']}, dims=['aggregation'])
-
-        # first figure out which direction the target went
-        expected_same_direction = aggregate_target.sel(**{self.condition_name: self.condition_value2}) - \
-                                  aggregate_target.sel(**{self.condition_name: self.condition_value1})
-        # test if the source change is significant
 
     def align(self, assembly):
         # assume for now that everything is already in order instead of sorting ourselves

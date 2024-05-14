@@ -1,0 +1,5 @@
+from brainscore_vision import benchmark_registry
+
+from .benchmark import Afraz2006FaceDependentShiftSignificant
+
+benchmark_registry['Afraz2006-shift_significant'] = Afraz2006FaceDependentShiftSignificant
